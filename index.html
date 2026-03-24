@@ -1208,10 +1208,17 @@ function startCode() {
   updateAirwayStatus();
   showScreen('liveScreen');
   toast('🚨 CODE BLUE! CPR Cycle #1', 'red');
-// สร้าง AudioContext ใน synchronous gesture handler — iOS จะไม่บล็อก
+// iOS Safari: สร้าง AudioContext ทันทีใน synchronous gesture แล้ว resume().then()
 if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-audioCtx.resume(); // fire-and-forget
-startMetronome(true); // เรียกทันที ไม่รอ .then()
+if (audioCtx.state === 'suspended') {
+  audioCtx.resume().then(() => {
+    startMetronome(true);
+  }).catch(() => {
+    _showAudioUnlockBanner();
+  });
+} else {
+  startMetronome(true);
+}
   if (!S.intubated && window.speechSynthesis) {
     window.speechSynthesis.cancel();
     setTimeout(() => speak('เริ่มซีพีอาร์ กดสามสิบครั้ง ช่วยหายใจสองครั้ง', false), 800);
@@ -1702,14 +1709,14 @@ function startMetronome(autoStart) {
   beatCount = 0;
   metroActive = true;
 
-  // resume AudioContext (fire-and-forget) — playClick จะ resume เองถ้ายัง suspended
-  // ไม่ใช้ .then() เพราะ iOS ถือว่า gesture หมดอายุเมื่อเข้า async callback
+  // resume AudioContext ก่อนเล่นเสียง beat แรก
   const ctx = getAudioCtx();
-  ctx.resume();
-
-  // เริ่ม interval ทันทีใน synchronous context
-  beatCount++;
-  playClick(beatCount % 2 === 1);
+  const _firstBeat = () => { beatCount++; playClick(beatCount % 2 === 1); };
+  if (ctx.state === 'suspended') {
+    ctx.resume().then(_firstBeat).catch(_firstBeat);
+  } else {
+    _firstBeat();
+  }
   metroInterval = setInterval(() => {
     if (!metroActive) { clearInterval(metroInterval); return; }
     beatCount++;
@@ -1727,6 +1734,23 @@ function startMetronome(autoStart) {
   if (!autoStart) addTimeline('🥁 Metronome ' + metroBPM + ' BPM', 'system');
 }
 // unlockAudio removed — AudioContext is now created and resumed directly in startCode()
+
+// แสดง banner ให้ user กด unlock เสียง (iOS fallback)
+function _showAudioUnlockBanner() {
+  if (document.getElementById('_audioUnlockBanner')) return;
+  const banner = document.createElement('div');
+  banner.id = '_audioUnlockBanner';
+  banner.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:9999;background:#e65100;color:#fff;padding:12px 20px;border-radius:12px;font-family:Sarabun,sans-serif;font-size:15px;font-weight:700;box-shadow:0 4px 20px rgba(0,0,0,.5);cursor:pointer;text-align:center;';
+  banner.innerHTML = '🔊 แตะที่นี่เพื่อเปิดเสียง CPR';
+  banner.onclick = () => {
+    const ctx = getAudioCtx();
+    ctx.resume().then(() => {
+      banner.remove();
+      startMetronome(true);
+    });
+  };
+  document.body.appendChild(banner);
+}
 function stopMetronome() {
   metroActive = false;
   clearInterval(metroInterval);
