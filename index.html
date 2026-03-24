@@ -601,7 +601,7 @@ body.light .vs-input{background:#fff;border-color:#c5cae9;color:#1a1f3c}
           <input type="range" id="bpmSlider" min="100" max="120" value="110" step="1"
             oninput="updateBPM(this.value)" style="flex:1;min-width:60px;accent-color:#1a73e8">
           <div id="bpmDisplay" style="font-size:13px;font-weight:800;color:#82b1ff;white-space:nowrap">110 BPM</div>
-          <button class="btn btn-primary" style="font-size:12px;padding:5px 12px" id="metroBtnStart" onclick="startMetronome()">▶</button>
+          <button class="btn btn-primary" style="font-size:12px;padding:5px 12px" id="metroBtnStart" onclick="iosUnlockThenMetronome()">▶</button>
           <button class="btn btn-ghost" style="font-size:12px;padding:5px 12px" id="metroBtnStop" onclick="stopMetronome()" disabled>⏹</button>
           <div id="metroDot" style="width:12px;height:12px;border-radius:50%;background:#1a73e8;opacity:.3;flex-shrink:0"></div>
           <button id="ttsToggleBtn" onclick="toggleTTS()"
@@ -1208,16 +1208,19 @@ function startCode() {
   updateAirwayStatus();
   showScreen('liveScreen');
   toast('🚨 CODE BLUE! CPR Cycle #1', 'red');
-// iOS Safari: สร้าง AudioContext ทันทีใน synchronous gesture แล้ว resume().then()
-if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-if (audioCtx.state === 'suspended') {
-  audioCtx.resume().then(() => {
-    startMetronome(true);
-  }).catch(() => {
-    _showAudioUnlockBanner();
-  });
-} else {
+// iOS Safari fix: สร้าง AudioContext ใหม่ + เล่น silent buffer ทันทีใน gesture
+// เท่านั้นถึงจะ unlock audio บน iOS ได้ — ต้อง play จริงใน synchronous call
+try {
+  if (audioCtx) { try { audioCtx.close(); } catch(e){} }
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const silBuf = audioCtx.createBuffer(1, 1, 22050);
+  const silSrc = audioCtx.createBufferSource();
+  silSrc.buffer = silBuf;
+  silSrc.connect(audioCtx.destination);
+  silSrc.start(0);
   startMetronome(true);
+} catch(e) {
+  _showAudioUnlockBanner();
 }
   if (!S.intubated && window.speechSynthesis) {
     window.speechSynthesis.cancel();
@@ -1709,14 +1712,10 @@ function startMetronome(autoStart) {
   beatCount = 0;
   metroActive = true;
 
-  // resume AudioContext ก่อนเล่นเสียง beat แรก
+  // เล่น beat แรกทันที — audioCtx ถูก unlock ก่อนแล้วจาก startCode
   const ctx = getAudioCtx();
-  const _firstBeat = () => { beatCount++; playClick(beatCount % 2 === 1); };
-  if (ctx.state === 'suspended') {
-    ctx.resume().then(_firstBeat).catch(_firstBeat);
-  } else {
-    _firstBeat();
-  }
+  beatCount++;
+  playClick(beatCount % 2 === 1);
   metroInterval = setInterval(() => {
     if (!metroActive) { clearInterval(metroInterval); return; }
     beatCount++;
@@ -1750,6 +1749,19 @@ function _showAudioUnlockBanner() {
     });
   };
   document.body.appendChild(banner);
+}
+// iOS: unlock AudioContext ด้วย silent buffer ใน gesture แล้วค่อย startMetronome
+function iosUnlockThenMetronome() {
+  try {
+    if (audioCtx) { try { audioCtx.close(); } catch(e){} }
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const silBuf = audioCtx.createBuffer(1, 1, 22050);
+    const silSrc = audioCtx.createBufferSource();
+    silSrc.buffer = silBuf;
+    silSrc.connect(audioCtx.destination);
+    silSrc.start(0);
+    startMetronome(false);
+  } catch(e) { toast('ไม่สามารถเปิดเสียงได้: '+e.message,'red'); }
 }
 function stopMetronome() {
   metroActive = false;
