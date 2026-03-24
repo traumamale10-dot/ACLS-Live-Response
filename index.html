@@ -11,8 +11,22 @@
   --warning:#f9ab00;--purple:#7b2fbe;
   --bg:#0f0f1a;--surface:#1a1a2e;--card:#1e2035;
   --border:#2d3050;--text:#e8eaf6;--muted:#7986cb;--radius:12px;
+
+  /* semantic aliases used by new code */
+  --red:#d93025;--red-dim:rgba(217,48,37,.12);
+  --green:#188038;--green-dim:rgba(24,128,56,.12);
+  --amber:#f9ab00;--amber-dim:rgba(249,171,0,.12);
+  --blue:#1a73e8;--blue-dim:rgba(26,115,232,.10);
+  --text-sub:#7986cb;--text-dim:#4a5568;
+  --border-sub:#232540;
 }
-body.light{--bg:#f0f4ff;--surface:#fff;--card:#fff;--border:#d0d9f0;--text:#1a1f3c;--muted:#5c6bc0}
+body.light{--bg:#f0f4ff;--surface:#fff;--card:#fff;--border:#d0d9f0;--text:#1a1f3c;--muted:#5c6bc0;
+  --text-sub:#5c6bc0;--text-dim:#9fa8da;--border-sub:#e8ecf8;
+  --red:#d93025;--red-dim:rgba(217,48,37,.08);
+  --green:#188038;--green-dim:rgba(24,128,56,.08);
+  --amber:#f9ab00;--amber-dim:rgba(249,171,0,.1);
+  --blue:#1a73e8;--blue-dim:rgba(26,115,232,.08);
+}
 body.light .top-bar{box-shadow:0 2px 8px rgba(0,0,0,.08)}
 body.light .card,body.light .mini-timer{box-shadow:0 1px 6px rgba(0,0,0,.07)}
 body.light .rh-btn.noshock{background:rgba(217,48,37,.1);border-color:#d93025;color:#b71c1c}
@@ -39,6 +53,8 @@ body.light .sum-tl-item{border-bottom-color:rgba(0,0,0,.07)}
 body.light .stat-big{color:var(--text)!important}
 body.light #bpmDisplay{color:#1565c0!important}
 body.light .rosc-item{border-color:rgba(24,128,56,.3)}
+body.light .ekg-wave-wrap{background:rgba(0,0,0,.06)}
+body.light .change-banner{background:rgba(123,47,190,.08)}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;transition:background-color .2s,border-color .2s,color .2s}
 
 body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--text);font-size:16px;min-height:100vh}
@@ -54,7 +70,7 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--text);fon
 .app-sub{font-size:13px;color:var(--muted)}
 #btnCodeBlue{background:var(--danger);color:#fff;border:none;border-radius:16px;padding:18px 44px;
   font-size:21px;font-weight:800;cursor:pointer;box-shadow:0 0 32px rgba(217,48,37,.5);
-  animation:glow-red 2s ease-in-out infinite}
+  animation:glow-red 2s ease-in-out infinite;font-family:'Sarabun',sans-serif}
 @keyframes glow-red{0%,100%{box-shadow:0 0 24px rgba(217,48,37,.4)}50%{box-shadow:0 0 48px rgba(217,48,37,.8)}}
 #btnCodeBlue:active{transform:scale(.96)}
 .form-card{background:var(--card);border:1px solid var(--border);border-radius:14px;
@@ -112,11 +128,11 @@ body.light .sc-time{color:#1a1f3c}
 body.light .sticky-card{border-color:var(--border)}
 
 /* ── CPR BAR ── */
-.cpr-bar-wrap{background:rgba(255,255,255,.07);border-radius:3px;height:3px;overflow:hidden;margin:2px 0}
-body.light .cpr-bar-wrap{background:rgba(0,0,0,.1)}
-.cpr-bar-fill{height:100%;background:linear-gradient(90deg,var(--primary),#82b1ff);width:0%;transition:width 1s linear}
-.cpr-running-dot{display:inline-block;width:6px;height:6px;border-radius:50%;
-  background:#82b1ff;margin-left:4px;vertical-align:middle;animation:cpr-blink 1s ease-in-out infinite}
+.cpr-bar-wrap{background:var(--border);border-radius:2px;height:2px;overflow:hidden;margin:3px 0}
+body.light .cpr-bar-wrap{background:var(--border)}
+.cpr-bar-fill{height:100%;background:var(--blue);width:0%;transition:width 1s linear}
+.cpr-running-dot{display:inline-block;width:5px;height:5px;border-radius:50%;
+  background:var(--blue);margin-left:4px;vertical-align:middle;animation:cpr-blink 1s ease-in-out infinite}
 @keyframes cpr-blink{0%,100%{opacity:.2}50%{opacity:1}}
 
 /* ── CARDS ── */
@@ -128,7 +144,7 @@ body.light .cpr-bar-wrap{background:rgba(0,0,0,.1)}
 .rhythm-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .rh-btn{padding:14px 8px;border-radius:10px;border:2px solid transparent;
   cursor:pointer;font-size:15px;font-weight:700;text-align:center;
-  color:#fff;background:rgba(255,255,255,.07);transition:.15s}
+  color:#fff;background:rgba(255,255,255,.07);transition:.15s;font-family:'Sarabun',sans-serif}
 .rh-btn:hover{transform:translateY(-2px);border-color:rgba(255,255,255,.3)}
 .rh-btn.shock{background:rgba(123,47,190,.35);border-color:#7b2fbe}
 .rh-btn.noshock{background:rgba(217,48,37,.3);border-color:#d93025}
@@ -149,7 +165,6 @@ body.light .cpr-bar-wrap{background:rgba(0,0,0,.1)}
 .ekg-choice-btn:active{transform:scale(.98)}
 .ekg-choice-inner{padding:10px 14px}
 .ekg-wave-wrap{width:100%;height:52px;display:block;background:rgba(0,0,0,.25)}
-body.light .ekg-wave-wrap{background:rgba(0,0,0,.06)}
 
 /* ── ALGO STEPS ── */
 .algo-container{background:rgba(26,115,232,.08);border:1px solid rgba(26,115,232,.3);
@@ -174,7 +189,7 @@ body.light .ekg-wave-wrap{background:rgba(0,0,0,.06)}
   border-left:3px solid #82b1ff;border-radius:6px;padding:10px 12px;margin-top:8px;
   font-size:13px;line-height:1.9;color:#cfd8dc}
 .step-action-btn{margin-top:7px;padding:6px 14px;border-radius:6px;border:none;
-  cursor:pointer;font-size:13px;font-weight:700;transition:.15s}
+  cursor:pointer;font-size:13px;font-weight:700;transition:.15s;font-family:'Sarabun',sans-serif}
 .btn-log-drug{background:var(--warning);color:#000}
 .btn-log-shock{background:var(--purple);color:#fff}
 .btn-log-cpr{background:var(--primary);color:#fff}
@@ -255,30 +270,34 @@ body.light .sum-tl-item{border-bottom-color:rgba(0,0,0,.07)}
 #toast.red{background:var(--danger)}
 
 /* ── H&T BUTTONS ── */
-.ht-btn{padding:9px 10px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;
-  text-align:left;border:1.5px solid transparent;line-height:1.4;background:rgba(255,255,255,.04);
-  font-family:'Sarabun',sans-serif}
-.ht-btn small{font-size:10px;opacity:.7;display:block;margin-top:1px}
-.h-btn{border-color:rgba(239,154,154,.4);color:#ef9a9a}
-.h-btn:hover,.h-btn.selected{background:rgba(217,48,37,.22);border-color:#ef5350;color:#fff}
-.t-btn{border-color:rgba(179,157,219,.4);color:#b39ddb}
-.t-btn:hover,.t-btn.selected{background:rgba(123,47,190,.25);border-color:#9c27b0;color:#fff}
-.ht-badge{display:inline-block;width:16px;height:16px;border-radius:3px;
-  font-size:9px;font-weight:800;text-align:center;line-height:16px;margin-right:3px}
-.h-badge{background:#c62828;color:#fff}
-.t-badge{background:#6a1b9a;color:#fff}
+.ht-btn{padding:8px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;
+  text-align:left;border:1px solid var(--border);line-height:1.4;background:transparent;
+  font-family:'Sarabun',sans-serif;color:var(--text-sub)}
+.ht-btn:hover{background:var(--border-sub);color:var(--text)}
+.ht-btn:active{transform:scale(.97)}
+.ht-badge{display:inline-block;font-size:9px;font-weight:700;padding:1px 5px;
+  border-radius:3px;margin-right:4px}
+.h-btn{border-color:rgba(88,166,255,.3)}
+.h-btn.active{background:var(--blue-dim);border-color:var(--blue);color:var(--blue)}
+.h-badge{background:var(--blue-dim);color:var(--blue)}
+.t-btn{border-color:rgba(248,81,73,.3)}
+.t-btn.active{background:var(--red-dim);border-color:var(--red);color:var(--red)}
+.t-badge{background:var(--red-dim);color:var(--red)}
+.ht-btn small{font-size:10px;opacity:.65;display:block;margin-top:1px}
+.ht-badge{display:inline-block;width:15px;height:15px;border-radius:3px;
+  font-size:9px;font-weight:700;text-align:center;line-height:15px;margin-right:3px}
 
 /* ── VITAL SIGN INPUTS ── */
 .vs-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
-.vs-item{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;padding:10px}
-body.light .vs-item{background:#f5f7ff}
-.vs-label{font-size:11px;color:var(--muted);font-weight:700;margin-bottom:5px}
+.vs-item{background:transparent;border:1px solid var(--border);border-radius:6px;padding:10px}
+body.light .vs-item{background:#f6f8fa}
+.vs-label{font-size:11px;color:var(--text-sub);font-weight:600;margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px}
 .vs-inputs{display:flex;gap:5px;align-items:center}
-.vs-input{flex:1;padding:7px 8px;background:rgba(255,255,255,.07);border:1px solid var(--border);
-  border-radius:6px;color:var(--text);font-size:14px;font-weight:700;font-family:'Sarabun',sans-serif;text-align:center}
-body.light .vs-input{background:#fff;border-color:#c5cae9;color:#1a1f3c}
-.vs-unit{font-size:11px;color:var(--muted);white-space:nowrap}
-.vs-result{font-size:11px;margin-top:4px;font-weight:700;min-height:16px}
+.vs-input{flex:1;padding:7px 8px;background:var(--bg);border:1px solid var(--border);
+  border-radius:5px;color:var(--text);font-size:14px;font-weight:700;font-family:'Sarabun',sans-serif;text-align:center}
+body.light .vs-input{background:#fff;border-color:var(--border);color:var(--text)}
+.vs-unit{font-size:11px;color:var(--text-sub);white-space:nowrap}
+.vs-result{font-size:11px;margin-top:4px;font-weight:600;min-height:16px}
 
 /* ════════════════════════════════════════
    EKG AI MODAL CSS
@@ -1432,8 +1451,8 @@ function _renderAlgoHTML(rhythm, algo) {
       else if (a==='intubate') html += `<button class="step-action-btn" style="background:#00838f;color:#fff;${ds}" onclick="logIntubateAndAdvance()"${d}>🫁 ใส่ท่อสำเร็จ</button>`;
       else if (a==='drug')   html += `<button class="step-action-btn btn-log-drug" style="${ds}" onclick="logDrugAndAdvance('${(step.drug||'Drug').replace(/[\'\"]/g,'')}')"${d}>✓ ให้ยาแล้ว</button>`;
       else if (a==='ecpr')   html += `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
-        <button class="step-action-btn" style="background:#1565c0;color:#fff;${ds}" onclick="advanceStep()"${d}>✅ ส่ง ECPR แล้ว</button>
-        <button class="step-action-btn" style="background:#37474f;color:#b0bec5;${ds}" onclick="advanceStep()"${d}>⏭ ไม่มี ECPR — ข้าม</button>
+        <button class="step-action-btn" style="background:#1565c0;color:#fff;${ds}" onclick="logECPRAndAdvance('sent')"${d}>✅ ส่ง ECPR แล้ว</button>
+        <button class="step-action-btn" style="background:#37474f;color:#b0bec5;${ds}" onclick="logECPRAndAdvance('skip')"${d}>⏭ ไม่มี ECPR — ข้าม</button>
       </div>`;
       else                   html += `<button class="step-action-btn btn-log-cpr" style="background:#546e7a;${ds}" onclick="advanceStep()"${d}>✓ ทำแล้ว → ถัดไป</button>`;
     }
@@ -1748,6 +1767,16 @@ function showEKGCheck(isInitial) {
 }
 function closeEKGCheck() { const el=document.getElementById('ekgCheckOverlay'); if(el) el.remove(); }
 
+function logECPRAndAdvance(action){
+  if(action==='sent'){
+    addTimeline('🏥 ส่ง ECPR — ทีม ECPR รับทราบ','system');
+    toast('✅ บันทึก ECPR แล้ว','green');
+  } else {
+    addTimeline('⏭ ไม่มี ECPR — CPR ต่อเนื่อง','system');
+    toast('⏭ ข้าม ECPR');
+  }
+  advanceStep();
+}
 function continueCPRAndAdvance(){addTimeline('💪 CPR ดำเนินต่อ','cpr');advanceStep();}
 function logEpiAndAdvance(){logEpi();advanceStep();}
 function logShockAndAdvance(){logShock();advanceStep();}
@@ -1889,17 +1918,23 @@ function showIntubateModal(){
     <div style="font-size:15px;font-weight:800;color:var(--text);text-align:center;margin-bottom:14px">Airway Status</div>
     <button onclick="confirmIntubate('already')" style="width:100%;padding:12px;border-radius:9px;border:2px solid rgba(0,131,143,.6);background:rgba(0,131,143,.15);color:#80cbc4;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;text-align:left;font-family:Sarabun,sans-serif">✅ ใส่ท่ออยู่แล้ว<br><span style="font-size:11px;font-weight:400;color:#4db6ac">ETT มีอยู่ก่อนเกิดเหตุ</span></button>
     <button onclick="confirmIntubate('now')" style="width:100%;padding:12px;border-radius:9px;border:2px solid rgba(26,115,232,.6);background:rgba(26,115,232,.15);color:#82b1ff;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;text-align:left;font-family:Sarabun,sans-serif">🫁 ใส่ท่อตอนนี้<br><span style="font-size:11px;font-weight:400;color:#64b5f6">ETT ชาย 7.5-8 / หญิง 7-7.5 | capnography</span></button>
+    <button onclick="confirmIntubate('skip')" style="width:100%;padding:12px;border-radius:9px;border:2px solid rgba(249,171,0,.5);background:rgba(249,171,0,.1);color:#ffd54f;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;text-align:left;font-family:Sarabun,sans-serif">⏭ ยังไม่ได้ใส่ — ข้ามไปก่อน<br><span style="font-size:11px;font-weight:400;color:#ffb300">ยังใช้ CPR 30:2 ต่อไป</span></button>
     <button onclick="closeIntubateModal()" style="width:100%;padding:8px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;border-radius:7px;font-family:Sarabun,sans-serif">ยกเลิก</button>
   </div>`;
   document.body.appendChild(overlay);overlay.addEventListener('click',e=>{if(e.target===overlay)closeIntubateModal();});
 }
 function confirmIntubate(type){
-  closeIntubateModal();S.intubated=true;const ts=elapsedStr();
+  closeIntubateModal();const ts=elapsedStr();
+  if(type==='skip'){
+    addTimeline('⏭ ยังไม่ใส่ท่อ — ข้ามไปก่อน','system');
+    toast('⏭ ข้ามการใส่ท่อ — CPR 30:2 ต่อไป');
+    advanceStep(); return;
+  }
+  S.intubated=true;
   if(type==='already'){S.drugs.push({time:ts,realTime:nowStr(),drug:'Airway',dose:'ETT มีอยู่แล้ว',route:'Airway'});addTimeline('🫁 ยืนยัน ETT อยู่แล้ว','drug');toast('✅ Airway confirmed','green');}
   else{S.drugs.push({time:ts,realTime:nowStr(),drug:'Intubation (ETT)',dose:'ETT ใหม่',route:'Airway'});addTimeline('🫁 ใส่ ETT สำเร็จ','drug');toast('🫁 Intubation บันทึก','green');}
   updateAirwayStatus();
   setTimeout(()=>speak('ใส่ท่อสำเร็จ กดซีพีอาร์ต่อเนื่อง ช่วยหายใจทุก 6วินาที',false),400);
-  // advance step แล้ว re-render airway note
   if (S.currentRhythm) {
     const algo = ALGO[getAlgoKey(S.currentRhythm)];
     if (algo && algo.cycles) { advanceStep(); _renderAlgoHTMLUpdate(); }
