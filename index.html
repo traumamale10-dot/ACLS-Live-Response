@@ -1951,6 +1951,12 @@ async function ekgm_analyze(){
     const result = typeof gasRes === 'string' ? JSON.parse(gasRes) : gasRes;
     if(result.error) throw new Error(result.error);
     ekgm_lastResult = result;
+    // ซ่อน loading spinner ก่อนแสดงผล
+    clearInterval(mi_int);
+    document.getElementById('ekgm_loading').classList.remove('show');
+    document.getElementById('ekgm_analyzeBtn').disabled=false;
+    document.getElementById('ekgm_spinner').style.display='none';
+    document.getElementById('ekgm_analyzeTxt').textContent='🤖 วิเคราะห์ Rhythm ด้วย AI (Gemini)';
     ekgm_showResult(result);
   }catch(e){
     clearInterval(mi_int);
@@ -1984,10 +1990,22 @@ function ekgm_applyRhythm(){
   if(!ekgm_lastResult)return;const rKey=ekgm_lastResult.acls_rhythm_key||ekgm_lastResult.rhythm;
   closeEKGModal();
   setTimeout(()=>{
-    const btns={'VF':'selectRhythm(\'VF\'','pVT':'selectRhythm(\'pVT\'','Asystole':'selectRhythm(\'Asystole\'','PEA':'selectRhythm(\'PEA\''};
-    const selector=`[onclick*="${btns[rKey]}"]`;
-    if(selector){const btn=document.querySelector(selector);if(btn){btn.click();toast('✅ เลือก '+rKey+' จาก AI แล้ว','green');}}
-    else if(typeof selectRhythm==='function'){selectRhythm(rKey,document.createElement('div'));toast('🤖 AI แนะนำ: '+rKey,'green');}
+    // ค้นหาปุ่ม rhythm จริงด้วย selector ที่ถูกต้อง (มี ) ปิดวงเล็บ)
+    const selector=`[onclick*="selectRhythm('${rKey}')"]`;
+    const btn=document.querySelector(selector);
+    if(btn){
+      btn.click();
+      toast('✅ เลือก '+rKey+' จาก AI แล้ว','green');
+    } else if(typeof selectRhythm==='function'){
+      // fallback: เรียกตรงแต่ส่ง real DOM button ถ้าหาเจอ หรือสร้าง dummy ที่มี classList
+      const allBtns=document.querySelectorAll('.rh-btn');
+      let realBtn=null;
+      allBtns.forEach(b=>{if((b.getAttribute('onclick')||'').includes("'"+rKey+"'"))realBtn=b;});
+      const el=realBtn||document.createElement('button');
+      el.classList=el.classList||{add:()=>{}};
+      selectRhythm(rKey,el);
+      toast('🤖 AI แนะนำ: '+rKey,'green');
+    }
   },300);
 }
 window.ekgm_applyRhythm=ekgm_applyRhythm;
