@@ -1028,57 +1028,110 @@ async function gasCall(action, payload) {
 // ══════════════════════════════════════════
 //  ALGORITHM DATA
 // ══════════════════════════════════════════
+// ══════════════════════════════════════════
+//  CYCLE-BASED ALGORITHM ENGINE
+//  แต่ละ algo มี cycles[] แทน steps[]
+//  cycle สุดท้ายของทุก group = "loop cycle" ที่วนซ้ำไม่จำกัด
+//  ทุก cycle ที่มี cpr step จะบังคับเปิด EKG Check อัตโนมัติ
+// ══════════════════════════════════════════
+
+function getAlgoKey(rhythm) {
+  if (rhythm === 'VF' || rhythm === 'pVT') return 'VFPVT';
+  if (rhythm === 'Asystole' || rhythm === 'PEA') return 'NOSHOCK';
+  return rhythm;
+}
+
+// ── step types ──
+// action: 'cpr_start' = CPR เริ่มต้น (ไม่นับ cycle, ไม่ต้องเช็ค EKG)
+// action: 'cpr'       = CPR 2 นาที → เมื่อกด "ครบ 2 นาที" จะเปิด EKG check อัตโนมัติ
+// action: 'shock'     = Defibrillation
+// action: 'epi'       = Epinephrine
+// action: 'amio'      = Amiodarone
+// action: 'intubate'  = ใส่ท่อ (ข้ามอัตโนมัติถ้ามีท่อแล้ว)
+// action: null        = informational (ปุ่ม "ทำแล้ว")
+
 const ALGO = {
-  VF:{title:"VF — Ventricular Fibrillation",color:"#7b2fbe",shockable:true,steps:[
-    {text:"CPR คุณภาพสูงทันที (100-120/min, ลึก 5-6 cm)",action:"cpr_continue"},
-    {text:"Defibrillation Biphasic <b>200J</b> — Shock ทันที!",action:"shock",drug:"⚡ Shock 200J Biphasic"},
-    {text:"CPR ต่อเนื่อง 2 นาที — IV/IO Access",action:"cpr",ekg:"<b>ครบ 2 นาที → ดู EKG</b><br><span style='color:#ce93d8'>▸ ยังเป็น VF/pVT</span> → Shock ซ้ำทันที<br><span style='color:#81c784'>▸ Organized + Pulse</span> → ROSC!<br><span style='color:#ffd54f'>▸ Asystole/PEA</span> → เปลี่ยน algo"},
-    {text:"<b>Airway / Intubation</b><br><small style='color:#80cbc4'>ETT ชาย 7.5-8 / หญิง 7-7.5 | waveform capnography | 10 ครั้ง/นาที</small>",action:"intubate",drug:"🫁 Airway"},
-    {text:"Epinephrine 1mg IV — ซ้ำทุก 4 นาที",action:"epi",drug:"💉 Epi 1mg IV"},
-    {text:"ประเมิน rhythm — ถ้ายัง VF: Shock ซ้ำ",action:"shock",drug:"⚡ Shock ครั้งที่ 3"},
-    {text:"<b>Amiodarone 300mg IV bolus</b><br><small style='color:#ffd54f'>⚠ ให้ครั้งที่ 1 เท่านั้น — หลัง Shock ที่ 3</small>",action:"amio",drug:"💊 Amiodarone 300mg IV (ครั้งแรก)"},
-    {text:"CPR 2 นาที → ประเมิน ROSC ทุกรอบ",action:"cpr",ekg:"<b>ครบ 2 นาที → ดู EKG</b><br><span style='color:#ce93d8'>▸ ยัง VF/pVT</span> → <b>Shock ซ้ำ + Epi q4min</b><br><small style='color:#ce93d8;margin-left:12px'>Amiodarone 150mg ครั้งที่ 2 — ให้ได้ถ้ายัง refractory</small><br><span style='color:#81c784'>▸ Organized + Pulse</span> → ROSC!<br><span style='color:#ffd54f'>▸ Asystole/PEA</span> → เปลี่ยน algo"},
-    {text:"<b>Amiodarone 150mg IV</b> — ถ้ายัง refractory VF (ครั้งที่ 2 เท่านั้น)<br><small style='color:#ffd54f'>⚠ ไม่ให้อีกหลังจากนี้</small>",action:"amio",drug:"💊 Amiodarone 150mg IV (ครั้งที่ 2)"},
-    {text:"H's &amp; T's — หา Reversible Cause<br><small style='color:var(--muted)'>Hypoxia • Hypovolemia • H⁺ • K⁺ • Hypothermia</small>",action:null},
-    {text:"T's: Tension Pneumo • Tamponade • Toxin • Thrombosis<br><small style='color:var(--muted)'>วนซ้ำด้วย Shock + Epi q4min เท่านั้น</small>",action:null},
-    {text:"ไม่ตอบสนองต่อ ACLS มาตรฐาน → พิจารณา <b>ECPR</b> (Class 2a — AHA 2025)<br><small style='color:#80cbc4'>ต้องมีทีมและระบบพร้อม</small><br><button onclick='advanceStep()' style='margin-top:8px;padding:6px 14px;border-radius:6px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.08);color:#aaa;font-family:Sarabun,sans-serif;font-size:13px;font-weight:700;cursor:pointer'>⏭ ไม่มี ECPR — ข้าม</button>",action:null}
-  ]},
-  pVT:{title:"Pulseless VT (Shockable = VF)",color:"#7b2fbe",shockable:true,steps:[
-    {text:"CPR คุณภาพสูงทันที (100-120/min, ลึก 5-6 cm)",action:"cpr_continue"},
-    {text:"Defibrillation Biphasic <b>200J</b> ทันที",action:"shock",drug:"⚡ Shock 200J"},
-    {text:"CPR 2 นาที — IV/IO Access",action:"cpr",ekg:"<b>ครบ 2 นาที → ดู EKG</b><br><span style='color:#ce93d8'>▸ ยัง pVT/VF</span> → Shock ซ้ำทันที<br><span style='color:#81c784'>▸ Organized + Pulse</span> → ROSC!<br><span style='color:#ffd54f'>▸ Asystole/PEA</span> → เปลี่ยน algo"},
-    {text:"<b>Airway / Intubation</b>",action:"intubate",drug:"🫁 Airway"},
-    {text:"Epinephrine 1mg IV — ซ้ำทุก 4 นาที",action:"epi",drug:"💉 Epi 1mg IV"},
-    {text:"ประเมิน rhythm — ถ้ายัง pVT: Shock ซ้ำ",action:"shock",drug:"⚡ Shock ครั้งที่ 3"},
-    {text:"<b>Amiodarone 300mg IV bolus</b>",action:"amio",drug:"💊 Amiodarone 300mg IV (ครั้งแรก)"},
-    {text:"CPR 2 นาที → ประเมิน ROSC ทุกรอบ",action:"cpr",ekg:"<b>ครบ 2 นาที → ดู EKG</b><br><span style='color:#ce93d8'>▸ ยัง pVT/VF</span> → Shock + Epi q4min<br><span style='color:#81c784'>▸ Organized + Pulse</span> → ROSC!"},
-    {text:"<b>Amiodarone 150mg IV</b> — ถ้ายัง refractory (ครั้งที่ 2 เท่านั้น)",action:"amio",drug:"💊 Amiodarone 150mg IV (ครั้งที่ 2)"},
-    {text:"H's &amp; T's — Reversible Causes",action:null},
-    {text:"T's: Tension Pneumo • Tamponade • Toxin • Thrombosis",action:null},
-    {text:"ไม่ตอบสนองต่อ ACLS มาตรฐาน → พิจารณา <b>ECPR</b> (Class 2a — AHA 2025)<br><small style='color:#80cbc4'>ต้องมีทีมและระบบพร้อม</small><br><button onclick='advanceStep()' style='margin-top:8px;padding:6px 14px;border-radius:6px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.08);color:#aaa;font-family:Sarabun,sans-serif;font-size:13px;font-weight:700;cursor:pointer'>⏭ ไม่มี ECPR — ข้าม</button>",action:null}
-  ]},
-  Asystole:{title:"Asystole — Non-Shockable",color:"#d93025",shockable:false,steps:[
-    {text:"CPR ทันที — <b>ห้าม Shock</b>",action:"cpr_continue"},
-    {text:"IV/IO Access ระหว่าง CPR",action:null},
-    {text:"Epinephrine 1mg IV <b>ทันที</b> — ซ้ำทุก 4 นาที",action:"epi",drug:"💉 Epi 1mg IV"},
-    {text:"<b>Airway / Intubation</b>",action:"intubate",drug:"🫁 Airway"},
-    {text:"CPR 2 นาที ต่อเนื่อง",action:"cpr",ekg:"<b>ครบ 2 นาที → ดู EKG</b><br><span style='color:#ef9a9a'>▸ ยัง Asystole</span> → CPR + Epi ต่อ<br><span style='color:#ffd54f'>▸ PEA</span> → เปลี่ยน PEA algo<br><span style='color:#ce93d8'>▸ VF/pVT</span> → Shock ทันที!<br><span style='color:#81c784'>▸ Organized + Pulse</span> → ROSC!"},
-    {text:"H's &amp; T's — Reversible Cause",action:null},
-    {text:"T's: Tension Pneumo • Tamponade • Toxin • Thrombosis",action:null},
-    {text:"ประเมิน ROSC ทุก 2 นาที",action:"cpr",ekg:"<b>ครบ 2 นาที → ดู EKG</b><br><span style='color:#ef9a9a'>▸ ยัง Asystole</span> → CPR + Epi<br><span style='color:#ce93d8'>▸ VF/pVT</span> → Shock ทันที!<br><span style='color:#81c784'>▸ Pulse กลับ</span> → ROSC!"},
-    {text:"ไม่ตอบสนองต่อ ACLS มาตรฐาน → พิจารณา <b>ECPR</b> (Class 2a — AHA 2025)<br><small style='color:#80cbc4'>ต้องมีทีมและระบบพร้อม</small><br><button onclick='advanceStep()' style='margin-top:8px;padding:6px 14px;border-radius:6px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.08);color:#aaa;font-family:Sarabun,sans-serif;font-size:13px;font-weight:700;cursor:pointer'>⏭ ไม่มี ECPR — ข้าม</button>",action:null}
-  ]},
-  PEA:{title:"PEA — Pulseless Electrical Activity",color:"#d93025",shockable:false,steps:[
-    {text:"CPR ทันที — <b>ห้าม Shock</b>",action:"cpr_continue"},
-    {text:"IV/IO Access ระหว่าง CPR",action:null},
-    {text:"Epinephrine 1mg IV <b>ทันที</b> — ซ้ำทุก 4 นาที",action:"epi",drug:"💉 Epi 1mg IV"},
-    {text:"<b>Airway / Intubation</b>",action:"intubate",drug:"🫁 Airway"},
-    {text:"CPR 2 นาที ต่อเนื่อง",action:"cpr",ekg:"<b>ครบ 2 นาที → ดู EKG</b><br><span style='color:#ef9a9a'>▸ ยัง Asystole</span> → CPR + Epi ต่อ<br><span style='color:#ffd54f'>▸ PEA</span> → เปลี่ยน PEA algo<br><span style='color:#ce93d8'>▸ VF/pVT</span> → Shock ทันที!<br><span style='color:#81c784'>▸ Organized + Pulse</span> → ROSC!"},
-    {text:"H's &amp; T's — Reversible Cause",action:null},
-    {text:"T's: Tension Pneumo • Tamponade • Toxin • Thrombosis",action:null},
-    {text:"ประเมิน ROSC ทุก 2 นาที",action:"cpr",ekg:"<b>ครบ 2 นาที → ดู EKG</b><br><span style='color:#ef9a9a'>▸ ยัง Asystole</span> → CPR + Epi<br><span style='color:#ce93d8'>▸ VF/pVT</span> → Shock ทันที!<br><span style='color:#81c784'>▸ Pulse กลับ</span> → ROSC!"},
-    {text:"ไม่ตอบสนองต่อ ACLS มาตรฐาน → พิจารณา <b>ECPR</b> (Class 2a — AHA 2025)<br><small style='color:#80cbc4'>ต้องมีทีมและระบบพร้อม</small><br><button onclick='advanceStep()' style='margin-top:8px;padding:6px 14px;border-radius:6px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.08);color:#aaa;font-family:Sarabun,sans-serif;font-size:13px;font-weight:700;cursor:pointer'>⏭ ไม่มี ECPR — ข้าม</button>",action:null}
-  ]},
+  // ════════════════════════════════
+  //  VF / pVT  —  Shockable
+  //  ทุก cycle จบด้วย action:'cpr' → บังคับ EKG check อัตโนมัติ
+  // ════════════════════════════════
+  VFPVT:{
+    title:"VF / pVT — Shockable Rhythm",
+    color:"#7b2fbe", shockable:true,
+    cycleColor:"rgba(123,47,190,.18)", cycleBorder:"#7b2fbe", cycleTextColor:"#ce93d8",
+    loopFrom: 4,
+    cycles:[
+      // ── Cycle 1 ──
+      { label:"CYCLE 1 — เริ่มต้น", steps:[
+        {text:"CPR คุณภาพสูงทันที (100-120/min, ลึก 5-6 cm)", action:"cpr_start"},
+        {text:"Defibrillation Biphasic <b>200J</b> — Shock ทันที!", action:"shock", drug:"⚡ Shock 200J Biphasic"},
+        {text:"CPR ต่อเนื่อง 2 นาที + IV/IO Access ระหว่าง CPR", action:"cpr"},
+      ]},
+      // ── Cycle 2 ──
+      { label:"CYCLE 2", steps:[
+        {text:"<b>Airway / Intubation</b><br><small style='color:#80cbc4'>ETT ชาย 7.5-8 / หญิง 7-7.5 | waveform capnography | 10/min</small>", action:"intubate", drug:"🫁 Airway"},
+        {text:"Epinephrine 1mg IV (ครั้งที่ 1)", action:"epi", drug:"💉 Epi 1mg IV"},
+        {text:"CPR 2 นาที", action:"cpr"},
+      ]},
+      // ── Cycle 3 ──
+      { label:"CYCLE 3", steps:[
+        {text:"ประเมิน rhythm — ถ้ายัง VF/pVT: <b>Shock ซ้ำ</b>", action:"shock", drug:"⚡ Shock ครั้งที่ 3"},
+        {text:"<b>Amiodarone 300mg IV bolus</b><br><small style='color:#ffd54f'>⚠ ครั้งที่ 1 — หลัง Shock ที่ 3</small>", action:"amio", drug:"💊 Amiodarone 300mg IV"},
+        {text:"CPR 2 นาที", action:"cpr"},
+      ]},
+      // ── Cycle 4 ──
+      { label:"CYCLE 4", steps:[
+        {text:"ประเมิน rhythm — ถ้ายัง VF/pVT: <b>Shock ซ้ำ</b>", action:"shock", drug:"⚡ Shock ครั้งที่ 4"},
+        {text:"<b>Amiodarone 150mg IV</b> (ครั้งที่ 2 เท่านั้น)<br><small style='color:#ffd54f'>⚠ ไม่ให้อีกหลังจากนี้</small>", action:"amio", drug:"💊 Amiodarone 150mg IV"},
+        {text:"Epinephrine 1mg IV (ซ้ำ q4min)", action:"epi", drug:"💉 Epi 1mg IV"},
+        {text:"H's &amp; T's — หา Reversible Cause<br><small style='color:var(--muted)'>Hypoxia • Hypovolemia • H⁺ • K⁺ • Hypothermia<br>Tension Pneumo • Tamponade • Toxin • Thrombosis</small>", action:null},
+        {text:"CPR 2 นาที", action:"cpr"},
+      ]},
+      // ── Cycle 5+ (loop) — ไม่ให้ Amio อีก ──
+      { label:"CYCLE 5+ — วนซ้ำ (Shock + Epi q4min)", steps:[
+        {text:"ประเมิน rhythm — ถ้ายัง VF/pVT: <b>Shock ซ้ำ</b>", action:"shock", drug:"⚡ Shock"},
+        {text:"Epinephrine 1mg IV (ซ้ำ q4min)<br><small style='color:#ffd54f'>⚠ ไม่ให้ Amiodarone อีก — ครบ 2 ครั้งแล้ว</small>", action:"epi", drug:"💉 Epi 1mg IV"},
+        {text:"ไม่ตอบสนองต่อ ACLS มาตรฐาน → พิจารณา <b>ECPR</b> (AHA 2025 Class 2a)<br><small style='color:#80cbc4'>ต้องมีทีมและระบบพร้อม</small>", action:"ecpr"},
+        {text:"CPR 2 นาที", action:"cpr"},
+      ]},
+    ]
+  },
+  VF:null, pVT:null,
+
+  // ════════════════════════════════
+  //  Asystole / PEA  —  Non-Shockable
+  //  ทุก cycle จบด้วย action:'cpr' → บังคับ EKG check อัตโนมัติ
+  // ════════════════════════════════
+  NOSHOCK:{
+    title:"Asystole / PEA — Non-Shockable",
+    color:"#d93025", shockable:false,
+    cycleColor:"rgba(217,48,37,.18)", cycleBorder:"#d93025", cycleTextColor:"#ef9a9a",
+    loopFrom: 2,
+    cycles:[
+      // ── Cycle 1 ──
+      { label:"CYCLE 1 — เริ่มต้น", steps:[
+        {text:"CPR ทันที — <b>ห้าม Shock</b>", action:"cpr_start"},
+        {text:"IV/IO Access ระหว่าง CPR", action:null},
+        {text:"Epinephrine 1mg IV <b>ทันที</b>", action:"epi", drug:"💉 Epi 1mg IV (ครั้งที่ 1)"},
+        {text:"<b>Airway / Intubation</b>", action:"intubate", drug:"🫁 Airway"},
+        {text:"CPR 2 นาที ต่อเนื่อง", action:"cpr"},
+      ]},
+      // ── Cycle 2 ──
+      { label:"CYCLE 2", steps:[
+        {text:"H's &amp; T's — หา Reversible Cause<br><small style='color:var(--muted)'>Hypoxia • Hypovolemia • H⁺ • K⁺ • Hypothermia</small>", action:null},
+        {text:"T's: Tension Pneumo • Tamponade • Toxin • Thrombosis", action:null},
+        {text:"Epinephrine 1mg IV (ซ้ำ q4min)", action:"epi", drug:"💉 Epi 1mg IV"},
+        {text:"CPR 2 นาที", action:"cpr"},
+      ]},
+      // ── Cycle 3+ (loop) ──
+      { label:"CYCLE 3+ — วนซ้ำ (CPR + Epi q4min)", steps:[
+        {text:"Epinephrine 1mg IV (ซ้ำ q4min)", action:"epi", drug:"💉 Epi 1mg IV"},
+        {text:"ไม่ตอบสนองต่อ ACLS มาตรฐาน → พิจารณา <b>ECPR</b> (AHA 2025 Class 2a)", action:"ecpr"},
+        {text:"CPR 2 นาที", action:"cpr"},
+      ]},
+    ]
+  },
+  Asystole:null, PEA:null,
   SVT:{title:"SVT — Narrow Complex Tachycardia",color:"#188038",steps:[
     {text:"ประเมิน Hemodynamic: BP, SpO₂",action:null},
     {text:"Unstable → Sync Cardioversion 50-100J",action:"shock",drug:"⚡ Sync Cardioversion 50J"},
@@ -1153,7 +1206,9 @@ let S = {
   totalSec:0,totalInterval:null,cprRemain:120,cprInterval:null,cprCycles:1,
   cprHistory:[],epiRemain:0,epiInterval:null,epiCount:0,epiHistory:[],
   shockCount:0,shockHistory:[],amioCount:0,
-  currentRhythm:null,currentStepIdx:0,
+  currentRhythm:null,
+  algoRunCycle:0,    // cycle index ปัจจุบัน (0-based)
+  currentStepIdx:0,  // step index ภายใน cycle ปัจจุบัน
   rhythmHistory:[],timeline:[],drugs:[],
   dtxLog:[],htCauses:[],intubated:false,roscTime:null,
   vitals:{},roscCheckState:{},fluids:[]
@@ -1255,68 +1310,233 @@ function selectRhythm(rhythm, el) {
   S.rhythmHistory.push({rhythm, time: elapsedStr()});
   addTimeline('📈 EKG: ' + rhythm, 'rhythm');
   if (prev && prev !== rhythm) toast('🔄 Rhythm เปลี่ยน → ' + rhythm, 'green');
-  if (S.epiCount > 0) {
+  // รีเซ็ต Epi timer เมื่อเปลี่ยน rhythm group
+  const prevKey = prev ? getAlgoKey(prev) : null;
+  const newKey = getAlgoKey(rhythm);
+  const groupChanged = prevKey && prevKey !== newKey;
+  if (groupChanged || S.epiCount > 0) {
     clearInterval(S.epiInterval);
     S.epiRemain = 240;
     document.getElementById('epiTimer').textContent = fmtTime(240);
     document.getElementById('epiTimer').className = 'sc-time';
     document.getElementById('epiCard').classList.remove('due','warn');
-    startEpiTimer();
+    if (S.epiCount > 0) startEpiTimer();
+    if (groupChanged) addTimeline('⏱ รีเซ็ต Epi timer (เปลี่ยน rhythm group)', 'system');
   }
-  renderAlgo(rhythm);
+  renderAlgo(rhythm);  // resets algoRunCycle + currentStepIdx internally
   document.getElementById('algoBox').style.display = '';
   document.getElementById('currentPhaseLabel').textContent = 'Rhythm: ' + rhythm;
   setTimeout(() => { document.getElementById('algoBox').scrollIntoView({behavior:'smooth',block:'start'}); }, 80);
 }
 
+// ══════════════════════════════════════════
+//  CYCLE ENGINE — helper functions
+// ══════════════════════════════════════════
+
+// ดึง cycle object ปัจจุบัน (รองรับการวนซ้ำ loop cycle)
+function getCurrentCycle(algo) {
+  const idx = Math.min(S.algoRunCycle, algo.cycles.length - 1);
+  return algo.cycles[idx];
+}
+
+// ดึง step object ปัจจุบัน
+function getCurrentStep(algo) {
+  const cyc = getCurrentCycle(algo);
+  return cyc ? cyc.steps[S.currentStepIdx] : null;
+}
+
+// ── RENDER ──
 function renderAlgo(rhythm) {
-  const algo = ALGO[rhythm]; if (!algo) return;
+  const key = getAlgoKey(rhythm);
+  const algo = ALGO[key]; if (!algo || !algo.cycles) return;
+
+  // reset เสมอเมื่อเริ่ม algo ใหม่
+  S.algoRunCycle = 0;
   S.currentStepIdx = 0;
+
+  // ข้าม intubate ถ้ามีท่อแล้ว (ใน cycle 0)
+  _skipIntubateIfNeeded(algo);
+
+  _renderAlgoHTML(rhythm, algo);
+}
+
+// render HTML ของ cycle ปัจจุบัน
+function _renderAlgoHTML(rhythm, algo) {
+  const key = getAlgoKey(rhythm);
+  const cyc = getCurrentCycle(algo);
+  if (!cyc) return;
+
   const box = document.getElementById('algoContent');
-  let html = '<div class="algo-header">🧠 ' + algo.title + '</div>';
+  const cycleNum = S.algoRunCycle + 1;
+  const isLoopCycle = S.algoRunCycle >= algo.loopFrom;
+
+  // ── header ──
+  const rhythmLabel = (rhythm==='VF'||rhythm==='pVT') ? 'VF / pVT — Shockable'
+    : (rhythm==='Asystole'||rhythm==='PEA') ? rhythm+' — Non-Shockable'
+    : algo.title;
+
   const airwayNote = S.intubated
     ? '<div style="background:rgba(0,131,143,.12);border:1px solid rgba(0,131,143,.35);border-radius:7px;padding:7px 10px;margin-bottom:8px;font-size:12px;color:#80cbc4">🫁 <b>มีท่อช่วยหายใจแล้ว</b> — CPR กดต่อเนื่อง | ช่วยหายใจ 10 ครั้ง/นาที</div>'
     : '<div style="background:rgba(26,115,232,.08);border:1px solid rgba(26,115,232,.25);border-radius:7px;padding:7px 10px;margin-bottom:8px;font-size:12px;color:#82b1ff">💨 <b>ยังไม่มีท่อ</b> — CPR 30 กด : 2 ช่วยหายใจ</div>';
-  html += airwayNote;
-  algo.steps.forEach((step, i) => {
+
+  // cycle badge
+  const cycBg = algo.cycleColor||'rgba(26,115,232,.18)';
+  const cycBd = algo.cycleBorder||'#1a73e8';
+  const cycTxt = algo.cycleTextColor||'#82b1ff';
+  const loopTag = isLoopCycle ? " <span style='font-size:10px;opacity:.7'>🔁 วนซ้ำ</span>" : "";
+  const cycleBadge = `<div style="background:${cycBg};border:1px solid ${cycBd};border-radius:8px;padding:6px 12px;margin-bottom:10px;font-size:13px;font-weight:800;color:${cycTxt};display:flex;align-items:center;justify-content:space-between">
+    <span>🔄 ${cyc.label}${loopTag}</span>
+    <span style="font-size:10px;font-weight:400;opacity:.7">Cycle ${cycleNum} of run</span>
+  </div>`;
+
+  let html = `<div class="algo-header">🧠 ${rhythmLabel}</div>${airwayNote}${cycleBadge}`;
+
+  cyc.steps.forEach((step, i) => {
     const isAutoDone = S.intubated && step.action === 'intubate';
-    if (isAutoDone && S.currentStepIdx === i) S.currentStepIdx = i + 1;
     const isNext = (i === S.currentStepIdx && !isAutoDone);
-    html += '<div class="step-row' + (isAutoDone?' done-step':isNext?' next-step':'') + '" id="step_' + i + '">';
-    html += '<div class="step-num' + (isAutoDone?' done':isNext?' next':'') + '">' + (isAutoDone?'✓':i+1) + '</div>';
+    html += '<div class="step-row'+(isAutoDone?' done-step':isNext?' next-step':'')+'" id="step_'+i+'">';
+    html += '<div class="step-num'+(isAutoDone?' done':isNext?' next':'')+'">'+(isAutoDone?'✓':i+1)+'</div>';
     html += '<div class="step-content">';
+
     if (isAutoDone) {
-      html += '<span style="color:#80cbc4;font-size:13px">✅ ใส่ท่อช่วยหายใจแล้ว</span>';
+      html += '<span style="color:#80cbc4;font-size:13px">✅ ใส่ท่อช่วยหายใจแล้ว — ข้ามขั้นตอนนี้</span>';
     } else {
       if (isNext) html += '<div class="next-badge">▶ ถัดไป</div> ';
       html += step.text;
-      if (step.drug) html += '<div class="step-drug">' + step.drug + '</div>';
-      if (step.ekg)  html += '<div class="step-ekg">' + step.ekg + '</div>';
-      if (step.action==='cpr_continue') html += '<button class="step-action-btn btn-log-cpr" style="background:#546e7a" onclick="continueCPRAndAdvance()">✓ CPR กำลังทำอยู่ → ถัดไป</button>';
-      else if (step.action==='cpr')     html += '<button class="step-action-btn btn-log-cpr" onclick="showEKGCheck()">⏱ CPR ครบ 2 นาที → เช็ค EKG</button>';
-      else if (step.action==='epi')     html += '<button class="step-action-btn btn-log-drug" onclick="logEpiAndAdvance()">✓ ให้ Epi แล้ว</button>';
-      else if (step.action==='shock')   html += '<button class="step-action-btn btn-log-shock" onclick="logShockAndAdvance()">✓ Shock แล้ว</button>';
-      else if (step.action==='amio')    html += '<button class="step-action-btn btn-log-drug" onclick="logAmioAndAdvance()">✓ ให้ Amio แล้ว</button>';
-      else if (step.action==='intubate')html += '<button class="step-action-btn" style="background:#00838f;color:#fff" onclick="logIntubateAndAdvance()">🫁 ใส่ท่อสำเร็จ</button>';
-      else if (step.action==='drug')    html += '<button class="step-action-btn btn-log-drug" onclick="logDrugAndAdvance(\'' + (step.drug||'Drug').replace(/[\'\"]/g,'') + '\')">✓ ให้ยาแล้ว</button>';
-      else html += '<button class="step-action-btn btn-log-cpr" style="background:#546e7a" onclick="advanceStep()">✓ ทำแล้ว → ถัดไป</button>';
+      if (step.drug) html += '<div class="step-drug">'+step.drug+'</div>';
+
+      // ── ปุ่มตาม action ──
+      const a = step.action;
+      if (a==='cpr_start')  html += '<button class="step-action-btn btn-log-cpr" style="background:#546e7a" onclick="continueCPRAndAdvance()">✓ CPR กำลังทำอยู่ → ถัดไป</button>';
+      else if (a==='cpr')   html += '<button class="step-action-btn btn-log-cpr" onclick="cprDoneEKGCheck()">⏱ ครบ 2 นาที → เช็ค EKG</button>';
+      else if (a==='shock') html += '<button class="step-action-btn btn-log-shock" onclick="logShockAndAdvance()">✓ Shock แล้ว → CPR ต่อ</button>';
+      else if (a==='epi')   html += '<button class="step-action-btn btn-log-drug" onclick="logEpiAndAdvance()">✓ ให้ Epi แล้ว → ถัดไป</button>';
+      else if (a==='amio')  html += '<button class="step-action-btn btn-log-drug" onclick="logAmioAndAdvance()">✓ ให้ Amio แล้ว</button>';
+      else if (a==='intubate') html += '<button class="step-action-btn" style="background:#00838f;color:#fff" onclick="logIntubateAndAdvance()">🫁 ใส่ท่อสำเร็จ</button>';
+      else if (a==='drug')  html += '<button class="step-action-btn btn-log-drug" onclick="logDrugAndAdvance(\''+(step.drug||'Drug').replace(/[\'\"]/g,'')+'\')">✓ ให้ยาแล้ว</button>';
+      else if (a==='ecpr')  html += '<button class="step-action-btn btn-log-cpr" style="background:#37474f;color:#b0bec5" onclick="advanceStep()">⏭ ไม่มี ECPR — ข้าม</button>';
+      else                  html += '<button class="step-action-btn btn-log-cpr" style="background:#546e7a" onclick="advanceStep()">✓ ทำแล้ว → ถัดไป</button>';
     }
     html += '</div></div>';
   });
+
   box.innerHTML = html;
 }
 
+// ── skip intubate steps ถ้ามีท่อแล้ว (ใน cycle ปัจจุบัน) ──
+function _skipIntubateIfNeeded(algo) {
+  if (!S.intubated) return;
+  const cyc = getCurrentCycle(algo);
+  if (!cyc) return;
+  while (S.currentStepIdx < cyc.steps.length && cyc.steps[S.currentStepIdx].action === 'intubate') {
+    S.currentStepIdx++;
+  }
+}
+
+// ── advance step ภายใน cycle ปัจจุบัน ──
+function advanceStep() {
+  const key = getAlgoKey(S.currentRhythm);
+  const algo = ALGO[key]; if (!algo || !algo.cycles) return;
+  const cyc = getCurrentCycle(algo);
+  if (!cyc) return;
+  const total = cyc.steps.length;
+
+  // mark done
+  const cur = document.getElementById('step_'+S.currentStepIdx);
+  if (cur) {
+    cur.classList.remove('next-step'); cur.classList.add('done-step');
+    const num = cur.querySelector('.step-num'); if(num){num.className='step-num done';num.textContent='✓';}
+    cur.querySelectorAll('button').forEach(b=>{b.disabled=true;b.style.opacity='.4';});
+    const badge=cur.querySelector('.next-badge'); if(badge)badge.remove();
+  }
+
+  S.currentStepIdx++;
+
+  // ข้าม intubate ถ้ามีท่อ
+  if (S.intubated && S.currentStepIdx < total && cyc.steps[S.currentStepIdx].action === 'intubate') {
+    // mark it done visually
+    const intEl = document.getElementById('step_'+S.currentStepIdx);
+    if(intEl){intEl.classList.add('done-step');const n=intEl.querySelector('.step-num');if(n){n.className='step-num done';n.textContent='✓';}}
+    S.currentStepIdx++;
+  }
+
+  if (S.currentStepIdx < total) {
+    // highlight next
+    const next = document.getElementById('step_'+S.currentStepIdx);
+    if (next) {
+      next.classList.add('next-step');
+      const num = next.querySelector('.step-num'); if(num) num.className='step-num next';
+      const cd = next.querySelector('.step-content');
+      if(cd && !cd.querySelector('.next-badge')) cd.insertAdjacentHTML('afterbegin','<div class="next-badge">▶ ถัดไป</div> ');
+      next.querySelectorAll('button').forEach(b=>{b.disabled=false;b.style.opacity='';});
+      next.scrollIntoView({behavior:'smooth',block:'center'});
+    }
+  }
+  // ถ้าถึง step สุดท้ายและเป็น action:'cpr' จะรอผู้ใช้กดปุ่ม (ไม่ auto advance)
+}
+
+// ── CPR ครบ 2 นาที → บังคับเช็ค EKG ──
+function cprDoneEKGCheck() {
+  // ปิดปุ่มทันทีป้องกันกดซ้ำ
+  const cur = document.getElementById('step_' + S.currentStepIdx);
+  if (cur) cur.querySelectorAll('button').forEach(b=>{b.disabled=true;b.style.opacity='.4';});
+  logCPRCycle();
+  showEKGCheck();
+}
+
+// ── หลังเลือก EKG: ถ้า rhythm เดิม → ไป cycle ถัดไป, ถ้าเปลี่ยน → renderAlgo ใหม่ ──
+function handleEKGChoice(rhythmChoice) {
+  closeEKGCheck();
+  if (rhythmChoice==='ROSC') { confirmROSC(); return; }
+
+  const prevKey = getAlgoKey(S.currentRhythm);
+  const newKey  = getAlgoKey(rhythmChoice);
+  const groupChanged = prevKey !== newKey;
+
+  if (!groupChanged) {
+    // ── rhythm group เดิม → ไป cycle ถัดไป ──
+    S.currentRhythm = rhythmChoice;
+    const algo = ALGO[newKey];
+    const nextCycleIdx = S.algoRunCycle + 1;
+    // ถ้าเกิน loopFrom ให้วน loop cycle (index สุดท้าย)
+    S.algoRunCycle = Math.min(nextCycleIdx, algo.cycles.length - 1);
+    S.currentStepIdx = 0;
+    _skipIntubateIfNeeded(algo);
+    _renderAlgoHTML(rhythmChoice, algo);
+    addTimeline('🔄 ยัง '+rhythmChoice+' — เริ่ม '+getCurrentCycle(algo).label,'system');
+    toast('▶ ยัง '+rhythmChoice+' → '+getCurrentCycle(algo).label, 'green');
+    setTimeout(()=>{ document.getElementById('algoBox').scrollIntoView({behavior:'smooth',block:'start'}); },80);
+  } else {
+    // ── เปลี่ยน rhythm group ──
+    addTimeline('🔄 EKG เปลี่ยนเป็น '+rhythmChoice+' — เริ่ม Algo ใหม่','system');
+    S.currentRhythm = rhythmChoice;
+    document.querySelectorAll('.rh-btn').forEach(b=>b.classList.remove('selected'));
+    S.rhythmHistory.push({rhythm:rhythmChoice, time:elapsedStr()});
+    addTimeline('📈 EKG: '+rhythmChoice,'rhythm');
+    // รีเซ็ต Epi timer
+    clearInterval(S.epiInterval);
+    S.epiRemain = 240;
+    document.getElementById('epiTimer').textContent = fmtTime(240);
+    document.getElementById('epiTimer').className = 'sc-time';
+    document.getElementById('epiCard').classList.remove('due','warn');
+    if (S.epiCount > 0) startEpiTimer();
+    renderAlgo(rhythmChoice);
+    document.getElementById('currentPhaseLabel').textContent = 'Rhythm: '+rhythmChoice;
+    toast('🔄 เปลี่ยน Algo → '+rhythmChoice,'green');
+    setTimeout(()=>{ document.getElementById('algoBox').scrollIntoView({behavior:'smooth',block:'start'}); },100);
+  }
+}
+
 function showEKGCheck() {
-  const rhythm = S.currentRhythm;
-  const isShockable = rhythm === 'VF' || rhythm === 'pVT';
+  const isShockable = getAlgoKey(S.currentRhythm) === 'VFPVT';
   const overlay = document.createElement('div');
   overlay.className = 'ekg-check-overlay';
   overlay.id = 'ekgCheckOverlay';
   const choices = [
-    {label:'⚡ VF / pVT (Shockable)',sub:isShockable?'→ Shock ซ้ำ + Epi q4min':'→ เปลี่ยนเป็น Shockable algo',rhythm:isShockable?rhythm:'VF',color:'rgba(123,47,190,.3)',border:'#7b2fbe'},
-    {label:'💔 Asystole',sub:'→ CPR + Epi ต่อเนื่อง',rhythm:'Asystole',color:'rgba(217,48,37,.2)',border:'#d93025'},
-    {label:'📉 PEA',sub:'→ CPR + หา H&T ต่อ',rhythm:'PEA',color:'rgba(217,48,37,.2)',border:'#d93025'},
-    {label:'✅ Organized + มีชีพจร',sub:'→ ROSC!',rhythm:'ROSC',color:'rgba(24,128,56,.3)',border:'#188038'}
+    {label:'⚡ VF / pVT (Shockable)', sub: isShockable?'→ Shock ซ้ำ + Epi q4min':'→ เปลี่ยนเป็น Shockable algo', rhythm:'VF',       color:'rgba(123,47,190,.3)', border:'#7b2fbe'},
+    {label:'💔 Asystole',             sub:'→ CPR + Epi ต่อเนื่อง',                                             rhythm:'Asystole',  color:'rgba(217,48,37,.2)',  border:'#d93025'},
+    {label:'📉 PEA',                  sub:'→ CPR + หา H&T ต่อ',                                                rhythm:'PEA',       color:'rgba(217,48,37,.2)',  border:'#d93025'},
+    {label:'✅ Organized + มีชีพจร', sub:'→ ROSC!',                                                            rhythm:'ROSC',      color:'rgba(24,128,56,.3)',  border:'#188038'}
   ];
   let html = '<div class="ekg-check-box"><div class="ekg-check-title">⏱ ครบ 2 นาที — ดู EKG แล้ว?</div>';
   choices.forEach(c => {
@@ -1327,44 +1547,25 @@ function showEKGCheck() {
   document.body.appendChild(overlay);
 }
 function closeEKGCheck() { const el=document.getElementById('ekgCheckOverlay'); if(el) el.remove(); }
-function handleEKGChoice(rhythmChoice) {
-  closeEKGCheck();
-  logCPRCycle();
-  if (rhythmChoice==='ROSC') { confirmROSC(); return; }
-  if (rhythmChoice===S.currentRhythm) { advanceStep(); toast('▶ ยัง '+rhythmChoice+' — CPR ต่อ','green'); }
-  else {
-    addTimeline('🔄 EKG เปลี่ยนเป็น '+rhythmChoice+' — เริ่ม Algo ใหม่','system');
-    S.currentRhythm=rhythmChoice;
-    document.querySelectorAll('.rh-btn').forEach(b=>b.classList.remove('selected'));
-    S.rhythmHistory.push({rhythm:rhythmChoice,time:elapsedStr()});
-    addTimeline('📈 EKG: '+rhythmChoice,'rhythm');
-    renderAlgo(rhythmChoice);
-    document.getElementById('currentPhaseLabel').textContent='Rhythm: '+rhythmChoice;
-    toast('🔄 เปลี่ยน Algo → '+rhythmChoice,'green');
-    setTimeout(()=>{ document.getElementById('algoBox').scrollIntoView({behavior:'smooth',block:'start'}); },100);
-  }
-}
-
-function advanceStep() {
-  const algo=ALGO[S.currentRhythm]; if(!algo) return;
-  const total=algo.steps.length;
-  const cur=document.getElementById('step_'+S.currentStepIdx);
-  if(cur){ cur.classList.remove('next-step'); cur.classList.add('done-step'); const num=cur.querySelector('.step-num'); if(num){num.className='step-num done';num.textContent='✓';} cur.querySelectorAll('button').forEach(b=>{b.disabled=true;b.style.opacity='.4';}); const badge=cur.querySelector('.next-badge');if(badge)badge.remove(); }
-  S.currentStepIdx++;
-  if(S.currentStepIdx<total){ const next=document.getElementById('step_'+S.currentStepIdx); if(next){ next.classList.add('next-step'); const num=next.querySelector('.step-num');if(num)num.className='step-num next'; const cd=next.querySelector('.step-content');if(cd&&!cd.querySelector('.next-badge'))cd.insertAdjacentHTML('afterbegin','<div class="next-badge">▶ ถัดไป</div> '); next.querySelectorAll('button').forEach(b=>{b.disabled=false;b.style.opacity='';}); next.scrollIntoView({behavior:'smooth',block:'center'}); } }
-  else { addTimeline('✅ ครบทุก step — ประเมิน ROSC','system'); toast('✅ ครบ steps! ประเมิน ROSC','green'); }
-}
 
 function continueCPRAndAdvance(){addTimeline('💪 CPR ดำเนินต่อ','cpr');advanceStep();}
 function logEpiAndAdvance(){logEpi();advanceStep();}
 function logShockAndAdvance(){logShock();advanceStep();}
-function logAmioAndAdvance(){logAmio();advanceStep();}
+function logAmioAndAdvance(){
+  if(S.amioCount>=2){
+    addTimeline('⏭ ข้าม Amiodarone (ครบ 2 ครั้งแล้ว)','system');
+    toast('⚠ Amiodarone ครบแล้ว — ข้าม','red');
+    advanceStep();
+  } else { logAmio(); advanceStep(); }
+}
 function logDrugAndAdvance(n){logDrug(n);advanceStep();}
 function logShockToolbar(){logShock();}
 function logCPRCycleToolbar(){logCPRCycle();}
 
 function undoStep() {
   if(S.currentStepIdx<=0){toast('ไม่มี step ก่อนหน้า');return;}
+  const algo=ALGO[getAlgoKey(S.currentRhythm)];if(!algo||!algo.cycles)return;
+  const cyc=getCurrentCycle(algo);if(!cyc)return;
   const curNext=document.getElementById('step_'+S.currentStepIdx);
   if(curNext){curNext.classList.remove('next-step');const num=curNext.querySelector('.step-num');if(num){num.className='step-num';num.textContent=String(S.currentStepIdx+1);}const badge=curNext.querySelector('.next-badge');if(badge)badge.remove();curNext.querySelectorAll('button').forEach(b=>{b.disabled=false;b.style.opacity='';});}
   S.currentStepIdx--;
@@ -1423,6 +1624,7 @@ function updateEpiHistory(){
   el.innerHTML=S.epiHistory.slice(-4).reverse().map((h,i)=>`<span>T+${h.ts} — #${S.epiHistory.length-i}</span>`).join('');
 }
 function logAmio(){
+  if(S.amioCount>=2){toast('⚠ Amiodarone ครบ 2 ครั้งแล้ว — ไม่ให้อีก!','red');return;}
   S.amioCount++;const dose=S.amioCount===1?'300mg':'150mg';const ts=elapsedStr();
   S.drugs.push({time:ts,realTime:nowStr(),drug:'Amiodarone',dose,route:'IV'});
   addTimeline('💊 Amiodarone '+dose+' IV (#'+S.amioCount+')','drug');toast('💊 Amiodarone '+dose);
@@ -1495,7 +1697,26 @@ function confirmIntubate(type){
   closeIntubateModal();S.intubated=true;const ts=elapsedStr();
   if(type==='already'){S.drugs.push({time:ts,realTime:nowStr(),drug:'Airway',dose:'ETT มีอยู่แล้ว',route:'Airway'});addTimeline('🫁 ยืนยัน ETT อยู่แล้ว','drug');toast('✅ Airway confirmed','green');}
   else{S.drugs.push({time:ts,realTime:nowStr(),drug:'Intubation (ETT)',dose:'ETT ใหม่',route:'Airway'});addTimeline('🫁 ใส่ ETT สำเร็จ','drug');toast('🫁 Intubation บันทึก','green');}
-  updateAirwayStatus();setTimeout(()=>speak('ใส่ท่อสำเร็จ กดซีพีอาร์ต่อเนื่อง ช่วยหายใจทุก 6วินาที',false),400);advanceStep();
+  updateAirwayStatus();
+  setTimeout(()=>speak('ใส่ท่อสำเร็จ กดซีพีอาร์ต่อเนื่อง ช่วยหายใจทุก 6วินาที',false),400);
+  // advance step แล้ว re-render airway note
+  if (S.currentRhythm) {
+    const algo = ALGO[getAlgoKey(S.currentRhythm)];
+    if (algo && algo.cycles) { advanceStep(); _renderAlgoHTMLUpdate(); }
+    else advanceStep();
+  } else advanceStep();
+}
+// อัพเดต airway note banner เท่านั้น (ไม่ reset step)
+function _renderAlgoHTMLUpdate() {
+  // หา airwayNote div และ replace
+  const box = document.getElementById('algoContent');
+  if (!box) return;
+  const banner = box.querySelector('[data-airway-note]');
+  // ถ้าไม่มี data attribute ให้ re-render ทั้ง cycle ปัจจุบัน
+  if (S.currentRhythm) {
+    const algo = ALGO[getAlgoKey(S.currentRhythm)];
+    if (algo && algo.cycles) _renderAlgoHTML(S.currentRhythm, algo);
+  }
 }
 function updateAirwayStatus(){
   const bar=document.getElementById('airwayStatusBar'),text=document.getElementById('airwayStatusText'),detail=document.getElementById('airwayVentDetail'),changeBtn=document.getElementById('airwayChangeBtn'),cprLabel=document.getElementById('cprLabel');
