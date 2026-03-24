@@ -135,18 +135,21 @@ body.light .cpr-bar-wrap{background:rgba(0,0,0,.1)}
 .rh-btn.selected{box-shadow:0 0 20px rgba(255,255,255,.3);transform:scale(1.03)}
 
 /* ── EKG CHECK modal ── */
-.ekg-check-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:300;
-  display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .3s ease}
+.ekg-check-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:300;
+  display:flex;align-items:center;justify-content:center;padding:12px;animation:fadeIn .3s ease;overflow-y:auto}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 .ekg-check-box{background:var(--card);border:2px solid var(--warning);border-radius:16px;
-  padding:20px;max-width:380px;width:100%}
-.ekg-check-title{font-size:17px;font-weight:800;color:var(--warning);margin-bottom:14px;text-align:center}
-.ekg-choice-btn{width:100%;padding:13px 16px;border-radius:10px;border:2px solid;
-  cursor:pointer;font-size:15px;font-weight:700;text-align:left;margin-bottom:8px;
-  font-family:'Sarabun',sans-serif;transition:.15s}
+  padding:16px;max-width:480px;width:100%;max-height:92vh;overflow-y:auto}
+.ekg-check-title{font-size:16px;font-weight:800;color:var(--warning);margin-bottom:12px;text-align:center}
+.ekg-choice-btn{width:100%;padding:0;border-radius:12px;border:2px solid;
+  cursor:pointer;font-size:14px;font-weight:700;text-align:left;margin-bottom:8px;
+  font-family:'Sarabun',sans-serif;transition:.15s;overflow:hidden;display:block}
 .ekg-choice-btn:last-child{margin-bottom:0}
-.ekg-choice-btn:hover{filter:brightness(1.15)}
-.ekg-choice-btn:active{transform:scale(.97)}
+.ekg-choice-btn:hover{filter:brightness(1.12);transform:translateY(-1px)}
+.ekg-choice-btn:active{transform:scale(.98)}
+.ekg-choice-inner{padding:10px 14px}
+.ekg-wave-wrap{width:100%;height:52px;display:block;background:rgba(0,0,0,.25)}
+body.light .ekg-wave-wrap{background:rgba(0,0,0,.06)}
 
 /* ── ALGO STEPS ── */
 .algo-container{background:rgba(26,115,232,.08);border:1px solid rgba(26,115,232,.3);
@@ -1263,6 +1266,8 @@ function startCode() {
   updateAirwayStatus();
   showScreen('liveScreen');
   toast('🚨 CODE BLUE! CPR Cycle #1', 'red');
+  // เด้ง EKG modal ทันทีหลังเข้า liveScreen
+  setTimeout(() => showEKGCheck(true), 400);
 // iOS Safari fix: สร้าง AudioContext ใหม่ + เล่น silent buffer ทันทีใน gesture
 // เท่านั้นถึงจะ unlock audio บน iOS ได้ — ต้อง play จริงใน synchronous call
 try {
@@ -1393,29 +1398,44 @@ function _renderAlgoHTML(rhythm, algo) {
 
   cyc.steps.forEach((step, i) => {
     const isAutoDone = S.intubated && step.action === 'intubate';
-    const isNext = (i === S.currentStepIdx && !isAutoDone);
-    html += '<div class="step-row'+(isAutoDone?' done-step':isNext?' next-step':'')+'" id="step_'+i+'">';
-    html += '<div class="step-num'+(isAutoDone?' done':isNext?' next':'')+'">'+(isAutoDone?'✓':i+1)+'</div>';
+    const isPast     = i < S.currentStepIdx;
+    const isNext     = i === S.currentStepIdx && !isAutoDone;
+    const isFuture   = i > S.currentStepIdx && !isAutoDone;
+
+    const rowCls = isAutoDone||isPast ? ' done-step' : isNext ? ' next-step' : '';
+    const numCls = isAutoDone||isPast ? ' done' : isNext ? ' next' : '';
+    const numTxt = isAutoDone||isPast ? '✓' : String(i+1);
+
+    html += `<div class="step-row${rowCls}" id="step_${i}">`;
+    html += `<div class="step-num${numCls}">${numTxt}</div>`;
     html += '<div class="step-content">';
 
     if (isAutoDone) {
       html += '<span style="color:#80cbc4;font-size:13px">✅ ใส่ท่อช่วยหายใจแล้ว — ข้ามขั้นตอนนี้</span>';
+    } else if (isPast) {
+      html += '<span style="opacity:.5;font-size:13px">'+step.text+'</span>';
     } else {
       if (isNext) html += '<div class="next-badge">▶ ถัดไป</div> ';
       html += step.text;
       if (step.drug) html += '<div class="step-drug">'+step.drug+'</div>';
 
-      // ── ปุ่มตาม action ──
+      // ── ปุ่มตาม action — disable ถ้าเป็น future step ──
       const a = step.action;
-      if (a==='cpr_start')  html += '<button class="step-action-btn btn-log-cpr" style="background:#546e7a" onclick="continueCPRAndAdvance()">✓ CPR กำลังทำอยู่ → ถัดไป</button>';
-      else if (a==='cpr')   html += '<button class="step-action-btn btn-log-cpr" onclick="cprDoneEKGCheck()">⏱ ครบ 2 นาที → เช็ค EKG</button>';
-      else if (a==='shock') html += '<button class="step-action-btn btn-log-shock" onclick="logShockAndAdvance()">✓ Shock แล้ว → CPR ต่อ</button>';
-      else if (a==='epi')   html += '<button class="step-action-btn btn-log-drug" onclick="logEpiAndAdvance()">✓ ให้ Epi แล้ว → ถัดไป</button>';
-      else if (a==='amio')  html += '<button class="step-action-btn btn-log-drug" onclick="logAmioAndAdvance()">✓ ให้ Amio แล้ว</button>';
-      else if (a==='intubate') html += '<button class="step-action-btn" style="background:#00838f;color:#fff" onclick="logIntubateAndAdvance()">🫁 ใส่ท่อสำเร็จ</button>';
-      else if (a==='drug')  html += '<button class="step-action-btn btn-log-drug" onclick="logDrugAndAdvance(\''+(step.drug||'Drug').replace(/[\'\"]/g,'')+'\')">✓ ให้ยาแล้ว</button>';
-      else if (a==='ecpr')  html += '<button class="step-action-btn btn-log-cpr" style="background:#37474f;color:#b0bec5" onclick="advanceStep()">⏭ ไม่มี ECPR — ข้าม</button>';
-      else                  html += '<button class="step-action-btn btn-log-cpr" style="background:#546e7a" onclick="advanceStep()">✓ ทำแล้ว → ถัดไป</button>';
+      const d = isFuture ? ' disabled' : '';
+      const ds = isFuture ? 'opacity:.3;pointer-events:none;' : '';
+
+      if (a==='cpr_start')   html += `<button class="step-action-btn btn-log-cpr" style="background:#546e7a;${ds}" onclick="continueCPRAndAdvance()"${d}>✓ CPR กำลังทำอยู่ → ถัดไป</button>`;
+      else if (a==='cpr')    html += `<button class="step-action-btn btn-log-cpr" style="${ds}" onclick="cprDoneEKGCheck()"${d}>⏱ ครบ 2 นาที → เช็ค EKG</button>`;
+      else if (a==='shock')  html += `<button class="step-action-btn btn-log-shock" style="${ds}" onclick="logShockAndAdvance()"${d}>✓ Shock แล้ว → CPR ต่อ</button>`;
+      else if (a==='epi')    html += `<button class="step-action-btn btn-log-drug" style="${ds}" onclick="logEpiAndAdvance()"${d}>✓ ให้ Epi แล้ว → ถัดไป</button>`;
+      else if (a==='amio')   html += `<button class="step-action-btn btn-log-drug" style="${ds}" onclick="logAmioAndAdvance()"${d}>✓ ให้ Amio แล้ว</button>`;
+      else if (a==='intubate') html += `<button class="step-action-btn" style="background:#00838f;color:#fff;${ds}" onclick="logIntubateAndAdvance()"${d}>🫁 ใส่ท่อสำเร็จ</button>`;
+      else if (a==='drug')   html += `<button class="step-action-btn btn-log-drug" style="${ds}" onclick="logDrugAndAdvance('${(step.drug||'Drug').replace(/[\'\"]/g,'')}')"${d}>✓ ให้ยาแล้ว</button>`;
+      else if (a==='ecpr')   html += `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+        <button class="step-action-btn" style="background:#1565c0;color:#fff;${ds}" onclick="advanceStep()"${d}>✅ ส่ง ECPR แล้ว</button>
+        <button class="step-action-btn" style="background:#37474f;color:#b0bec5;${ds}" onclick="advanceStep()"${d}>⏭ ไม่มี ECPR — ข้าม</button>
+      </div>`;
+      else                   html += `<button class="step-action-btn btn-log-cpr" style="background:#546e7a;${ds}" onclick="advanceStep()"${d}>✓ ทำแล้ว → ถัดไป</button>`;
     }
     html += '</div></div>';
   });
@@ -1461,14 +1481,19 @@ function advanceStep() {
   }
 
   if (S.currentStepIdx < total) {
-    // highlight next
+    // highlight next — enable ปุ่มทั้งหมดของ step นี้
     const next = document.getElementById('step_'+S.currentStepIdx);
     if (next) {
+      next.classList.remove('done-step');
       next.classList.add('next-step');
       const num = next.querySelector('.step-num'); if(num) num.className='step-num next';
       const cd = next.querySelector('.step-content');
       if(cd && !cd.querySelector('.next-badge')) cd.insertAdjacentHTML('afterbegin','<div class="next-badge">▶ ถัดไป</div> ');
-      next.querySelectorAll('button').forEach(b=>{b.disabled=false;b.style.opacity='';});
+      next.querySelectorAll('button').forEach(b=>{
+        b.disabled=false;
+        b.style.opacity='';
+        b.style.pointerEvents='';
+      });
       next.scrollIntoView({behavior:'smooth',block:'center'});
     }
   }
@@ -1477,43 +1502,65 @@ function advanceStep() {
 
 // ── CPR ครบ 2 นาที → บังคับเช็ค EKG ──
 function cprDoneEKGCheck() {
-  // ปิดปุ่มทันทีป้องกันกดซ้ำ
   const cur = document.getElementById('step_' + S.currentStepIdx);
   if (cur) cur.querySelectorAll('button').forEach(b=>{b.disabled=true;b.style.opacity='.4';});
   logCPRCycle();
-  showEKGCheck();
+  showEKGCheck(false);
 }
 
-// ── หลังเลือก EKG: ถ้า rhythm เดิม → ไป cycle ถัดไป, ถ้าเปลี่ยน → renderAlgo ใหม่ ──
+// ── หลังเลือก EKG ──
 function handleEKGChoice(rhythmChoice) {
   closeEKGCheck();
   if (rhythmChoice==='ROSC') { confirmROSC(); return; }
 
-  const prevKey = getAlgoKey(S.currentRhythm);
+  const prevKey = S.currentRhythm ? getAlgoKey(S.currentRhythm) : null;
   const newKey  = getAlgoKey(rhythmChoice);
+  const isInitialSelect = !S.currentRhythm;
+
+  if (isInitialSelect) {
+    S.currentRhythm = rhythmChoice;
+    S.rhythmHistory.push({rhythm: rhythmChoice, time: elapsedStr()});
+    addTimeline('📈 EKG เริ่มต้น: ' + rhythmChoice, 'rhythm');
+    document.querySelectorAll('.rh-btn').forEach(b => {
+      const oc = b.getAttribute('onclick')||'';
+      if (oc.includes("'"+rhythmChoice+"'")) b.classList.add('selected');
+    });
+    renderAlgo(rhythmChoice);
+    document.getElementById('algoBox').style.display = '';
+    document.getElementById('currentPhaseLabel').textContent = 'Rhythm: ' + rhythmChoice;
+    toast('📈 EKG: ' + rhythmChoice + ' — เริ่ม Algorithm', 'green');
+    setTimeout(()=>{ document.getElementById('algoBox').scrollIntoView({behavior:'smooth',block:'start'}); },150);
+    return;
+  }
+
   const groupChanged = prevKey !== newKey;
 
   if (!groupChanged) {
-    // ── rhythm group เดิม → ไป cycle ถัดไป ──
     S.currentRhythm = rhythmChoice;
+    document.querySelectorAll('.rh-btn').forEach(b => {
+      b.classList.remove('selected');
+      const oc = b.getAttribute('onclick')||'';
+      if (oc.includes("'"+rhythmChoice+"'")) b.classList.add('selected');
+    });
     const algo = ALGO[newKey];
     const nextCycleIdx = S.algoRunCycle + 1;
-    // ถ้าเกิน loopFrom ให้วน loop cycle (index สุดท้าย)
     S.algoRunCycle = Math.min(nextCycleIdx, algo.cycles.length - 1);
     S.currentStepIdx = 0;
     _skipIntubateIfNeeded(algo);
     _renderAlgoHTML(rhythmChoice, algo);
-    addTimeline('🔄 ยัง '+rhythmChoice+' — เริ่ม '+getCurrentCycle(algo).label,'system');
-    toast('▶ ยัง '+rhythmChoice+' → '+getCurrentCycle(algo).label, 'green');
+    addTimeline('🔄 ยัง ' + rhythmChoice + ' — เริ่ม ' + getCurrentCycle(algo).label, 'system');
+    toast('▶ ยัง ' + rhythmChoice + ' → ' + getCurrentCycle(algo).label, 'green');
     setTimeout(()=>{ document.getElementById('algoBox').scrollIntoView({behavior:'smooth',block:'start'}); },80);
   } else {
-    // ── เปลี่ยน rhythm group ──
-    addTimeline('🔄 EKG เปลี่ยนเป็น '+rhythmChoice+' — เริ่ม Algo ใหม่','system');
+    addTimeline('🔄 EKG เปลี่ยนเป็น ' + rhythmChoice + ' — เริ่ม Algo ใหม่', 'system');
     S.currentRhythm = rhythmChoice;
-    document.querySelectorAll('.rh-btn').forEach(b=>b.classList.remove('selected'));
-    S.rhythmHistory.push({rhythm:rhythmChoice, time:elapsedStr()});
-    addTimeline('📈 EKG: '+rhythmChoice,'rhythm');
-    // รีเซ็ต Epi timer
+    document.querySelectorAll('.rh-btn').forEach(b => {
+      b.classList.remove('selected');
+      const oc = b.getAttribute('onclick')||'';
+      if (oc.includes("'"+rhythmChoice+"'")) b.classList.add('selected');
+    });
+    S.rhythmHistory.push({rhythm: rhythmChoice, time: elapsedStr()});
+    addTimeline('📈 EKG: ' + rhythmChoice, 'rhythm');
     clearInterval(S.epiInterval);
     S.epiRemain = 240;
     document.getElementById('epiTimer').textContent = fmtTime(240);
@@ -1521,28 +1568,181 @@ function handleEKGChoice(rhythmChoice) {
     document.getElementById('epiCard').classList.remove('due','warn');
     if (S.epiCount > 0) startEpiTimer();
     renderAlgo(rhythmChoice);
-    document.getElementById('currentPhaseLabel').textContent = 'Rhythm: '+rhythmChoice;
-    toast('🔄 เปลี่ยน Algo → '+rhythmChoice,'green');
+    document.getElementById('currentPhaseLabel').textContent = 'Rhythm: ' + rhythmChoice;
+    toast('🔄 เปลี่ยน Algo → ' + rhythmChoice, 'green');
     setTimeout(()=>{ document.getElementById('algoBox').scrollIntoView({behavior:'smooth',block:'start'}); },100);
   }
 }
 
-function showEKGCheck() {
-  const isShockable = getAlgoKey(S.currentRhythm) === 'VFPVT';
+function showEKGCheck(isInitial) {
+  const isShockable = S.currentRhythm && getAlgoKey(S.currentRhythm) === 'VFPVT';
+
+  // ══ SVG EKG Waveforms ══
+  const EKG_SVG = {
+
+    // VF: coarse fibrillation — ระบิดสูงไม่สม่ำเสมอ amplitude ใหญ่
+    VF:`<svg class="ekg-wave-wrap" viewBox="0 0 480 56" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="480" height="56" fill="rgba(0,0,0,.35)"/>
+  <polyline fill="none" stroke="#ce93d8" stroke-width="2" stroke-linejoin="round"
+    points="0,28 5,14 9,42 13,8 17,46 21,6 25,44 29,10 33,38 37,12 41,40 45,6 49,48 53,16 57,36 61,8 65,48 69,14 73,34 77,6 81,44 85,12 89,44 93,18 97,8 101,40 105,16 109,46 113,10 117,34 121,6 125,46 129,20 133,8 137,44 141,18 145,50 149,14 153,36 157,8 161,46 165,18 169,30 173,6 177,42 181,12 185,46 189,22 193,8 197,42 201,16 205,48 209,10 213,38 217,6 221,48 225,20 229,10 233,44 237,16 241,50 245,12 249,36 253,8 257,46 261,20 265,28 269,6 273,42 277,14 281,46 285,20 289,8 293,42 297,18 301,48 305,10 309,36 313,6 317,46 321,22 325,8 329,42 333,14 337,50 341,18 345,30 349,6 353,44 357,16 361,46 365,20 369,8 373,40 377,12 381,48 385,14 389,36 393,6 397,46 401,22 405,10 409,44 413,16 417,50 421,10 425,36 429,6 433,46 437,20 441,28 445,8 449,42 453,14 457,48 461,10 465,34 469,6 473,46 477,20 480,28"/>
+  <text x="6" y="53" font-size="9" fill="rgba(206,147,216,.7)" font-family="monospace" font-weight="bold">Coarse VF</text>
+</svg>`,
+
+    // pVT: wide monomorphic QRS ที่ fast rate ไม่มี P wave
+    pVT:`<svg class="ekg-wave-wrap" viewBox="0 0 480 56" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="480" height="56" fill="rgba(0,0,0,.35)"/>
+  <polyline fill="none" stroke="#b39ddb" stroke-width="2" stroke-linejoin="round"
+    points="0,30 4,30 6,24 8,8 10,2 12,8 14,48 16,50 18,44 20,30
+            24,30 26,24 28,8 30,2 32,8 34,48 36,50 38,44 40,30
+            44,30 46,24 48,8 50,2 52,8 54,48 56,50 58,44 60,30
+            64,30 66,24 68,8 70,2 72,8 74,48 76,50 78,44 80,30
+            84,30 86,24 88,8 90,2 92,8 94,48 96,50 98,44 100,30
+            104,30 106,24 108,8 110,2 112,8 114,48 116,50 118,44 120,30
+            124,30 126,24 128,8 130,2 132,8 134,48 136,50 138,44 140,30
+            144,30 146,24 148,8 150,2 152,8 154,48 156,50 158,44 160,30
+            164,30 166,24 168,8 170,2 172,8 174,48 176,50 178,44 180,30
+            184,30 186,24 188,8 190,2 192,8 194,48 196,50 198,44 200,30
+            204,30 206,24 208,8 210,2 212,8 214,48 216,50 218,44 220,30
+            224,30 226,24 228,8 230,2 232,8 234,48 236,50 238,44 240,30
+            244,30 246,24 248,8 250,2 252,8 254,48 256,50 258,44 260,30
+            264,30 266,24 268,8 270,2 272,8 274,48 276,50 278,44 280,30
+            284,30 286,24 288,8 290,2 292,8 294,48 296,50 298,44 300,30
+            304,30 306,24 308,8 310,2 312,8 314,48 316,50 318,44 320,30
+            324,30 326,24 328,8 330,2 332,8 334,48 336,50 338,44 340,30
+            344,30 346,24 348,8 350,2 352,8 354,48 356,50 358,44 360,30
+            364,30 366,24 368,8 370,2 372,8 374,48 376,50 378,44 380,30
+            384,30 386,24 388,8 390,2 392,8 394,48 396,50 398,44 400,30
+            404,30 406,24 408,8 410,2 412,8 414,48 416,50 418,44 420,30
+            424,30 426,24 428,8 430,2 432,8 434,48 436,50 438,44 440,30
+            444,30 446,24 448,8 450,2 452,8 454,48 456,50 458,44 460,30
+            464,30 466,24 468,8 470,2 472,8 474,48 476,50 478,44 480,30"/>
+  <text x="6" y="53" font-size="9" fill="rgba(179,157,219,.7)" font-family="monospace" font-weight="bold">Pulseless VT (wide QRS)</text>
+</svg>`,
+
+    // Asystole: เส้นตรง มี noise เล็กน้อย
+    Asystole:`<svg class="ekg-wave-wrap" viewBox="0 0 480 56" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="480" height="56" fill="rgba(0,0,0,.35)"/>
+  <polyline fill="none" stroke="#ef9a9a" stroke-width="1.8" stroke-linejoin="round"
+    points="0,28 30,28 33,27 36,28 60,28 63,29 66,28 90,28 93,27 96,28 120,28 123,28 126,28 150,28 153,29 156,28 180,28 183,27 186,28 210,28 213,28 216,28 240,28 243,29 246,28 270,28 273,27 276,28 300,28 303,28 306,28 330,28 333,29 336,28 360,28 363,27 366,28 390,28 393,28 396,28 420,28 423,29 426,28 450,28 453,27 456,28 480,28"/>
+  <text x="6" y="50" font-size="9" fill="rgba(239,154,154,.7)" font-family="monospace" font-weight="bold">Asystole — Flat Line</text>
+</svg>`,
+
+    // PEA: narrow QRS สม่ำเสมอ แต่ไม่มีชีพจร
+    PEA:`<svg class="ekg-wave-wrap" viewBox="0 0 480 56" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="480" height="56" fill="rgba(0,0,0,.35)"/>
+  <polyline fill="none" stroke="#ffab91" stroke-width="1.8" stroke-linejoin="round"
+    points="0,30 16,30 18,28 20,30 22,26 24,8 26,46 28,30 30,28 34,30
+            50,30 52,28 54,30 56,26 58,8 60,46 62,30 64,28 68,30
+            84,30 86,28 88,30 90,26 92,8 94,46 96,30 98,28 102,30
+            118,30 120,28 122,30 124,26 126,8 128,46 130,30 132,28 136,30
+            152,30 154,28 156,30 158,26 160,8 162,46 164,30 166,28 170,30
+            186,30 188,28 190,30 192,26 194,8 196,46 198,30 200,28 204,30
+            220,30 222,28 224,30 226,26 228,8 230,46 232,30 234,28 238,30
+            254,30 256,28 258,30 260,26 262,8 264,46 266,30 268,28 272,30
+            288,30 290,28 292,30 294,26 296,8 298,46 300,30 302,28 306,30
+            322,30 324,28 326,30 328,26 330,8 332,46 334,30 336,28 340,30
+            356,30 358,28 360,30 362,26 364,8 366,46 368,30 370,28 374,30
+            390,30 392,28 394,30 396,26 398,8 400,46 402,30 404,28 408,30
+            424,30 426,28 428,30 430,26 432,8 434,46 436,30 438,28 442,30
+            458,30 460,28 462,30 464,26 466,8 468,46 470,30 472,28 476,30 480,30"/>
+  <line x1="0" y1="44" x2="480" y2="44" stroke="rgba(255,100,80,.4)" stroke-width="1" stroke-dasharray="6,4"/>
+  <text x="6" y="53" font-size="9" fill="rgba(255,171,145,.7)" font-family="monospace" font-weight="bold">PEA — Organized, No Pulse</text>
+</svg>`,
+
+    // ROSC: Normal sinus rhythm — P QRS T ชัดเจน
+    ROSC:`<svg class="ekg-wave-wrap" viewBox="0 0 480 56" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="480" height="56" fill="rgba(0,0,0,.35)"/>
+  <polyline fill="none" stroke="#69f0ae" stroke-width="2" stroke-linejoin="round"
+    points="0,32 10,32 12,30 14,28 16,30 18,32
+            22,32 24,28 26,32 28,6 30,48 32,32 34,30 36,28 38,30 40,32 44,26 46,28 48,32
+            62,32 64,30 66,28 68,30 70,32
+            74,32 76,28 78,32 80,6 82,48 84,32 86,30 88,28 90,30 92,32 96,26 98,28 100,32
+            114,32 116,30 118,28 120,30 122,32
+            126,32 128,28 130,32 132,6 134,48 136,32 138,30 140,28 142,30 144,32 148,26 150,28 152,32
+            166,32 168,30 170,28 172,30 174,32
+            178,32 180,28 182,32 184,6 186,48 188,32 190,30 192,28 194,30 196,32 200,26 202,28 204,32
+            218,32 220,30 222,28 224,30 226,32
+            230,32 232,28 234,32 236,6 238,48 240,32 242,30 244,28 246,30 248,32 252,26 254,28 256,32
+            270,32 272,30 274,28 276,30 278,32
+            282,32 284,28 286,32 288,6 290,48 292,32 294,30 296,28 298,30 300,32 304,26 306,28 308,32
+            322,32 324,30 326,28 328,30 330,32
+            334,32 336,28 338,32 340,6 342,48 344,32 346,30 348,28 350,30 352,32 356,26 358,28 360,32
+            374,32 376,30 378,28 380,30 382,32
+            386,32 388,28 390,32 392,6 394,48 396,32 398,30 400,28 402,30 404,32 408,26 410,28 412,32
+            426,32 428,30 430,28 432,30 434,32
+            438,32 440,28 442,32 444,6 446,48 448,32 450,30 452,28 454,30 456,32 460,26 462,28 464,32
+            478,32 480,32"/>
+  <text x="6" y="53" font-size="9" fill="rgba(105,240,174,.7)" font-family="monospace" font-weight="bold">Normal Sinus — มีชีพจร ✓</text>
+</svg>`
+  };
+
   const overlay = document.createElement('div');
   overlay.className = 'ekg-check-overlay';
   overlay.id = 'ekgCheckOverlay';
+
   const choices = [
-    {label:'⚡ VF / pVT (Shockable)', sub: isShockable?'→ Shock ซ้ำ + Epi q4min':'→ เปลี่ยนเป็น Shockable algo', rhythm:'VF',       color:'rgba(123,47,190,.3)', border:'#7b2fbe'},
-    {label:'💔 Asystole',             sub:'→ CPR + Epi ต่อเนื่อง',                                             rhythm:'Asystole',  color:'rgba(217,48,37,.2)',  border:'#d93025'},
-    {label:'📉 PEA',                  sub:'→ CPR + หา H&T ต่อ',                                                rhythm:'PEA',       color:'rgba(217,48,37,.2)',  border:'#d93025'},
-    {label:'✅ Organized + มีชีพจร', sub:'→ ROSC!',                                                            rhythm:'ROSC',      color:'rgba(24,128,56,.3)',  border:'#188038'}
+    {
+      label:'⚡ VF',
+      sub:'Ventricular Fibrillation — Coarse',
+      desc:'คลื่นระบิดสูง ไม่สม่ำเสมอ ไม่มี QRS',
+      rhythm:'VF', color:'rgba(123,47,190,.3)', border:'#7b2fbe',
+      wave: EKG_SVG.VF, tag:'SHOCKABLE ⚡', tagBg:'rgba(123,47,190,.5)', tagColor:'#f3e5f5'
+    },
+    {
+      label:'⚡ Pulseless VT',
+      sub:'Pulseless Ventricular Tachycardia',
+      desc:'QRS กว้าง สม่ำเสมอ อัตราเร็ว ไม่มีชีพจร',
+      rhythm:'pVT', color:'rgba(103,38,170,.3)', border:'#6a1b9a',
+      wave: EKG_SVG.pVT, tag:'SHOCKABLE ⚡', tagBg:'rgba(103,38,170,.5)', tagColor:'#ede7f6'
+    },
+    {
+      label:'💔 Asystole',
+      sub:'เส้นตรง — ไม่มีกิจกรรมไฟฟ้า',
+      desc:'Flat line ไม่มี QRS ไม่มีชีพจร',
+      rhythm:'Asystole', color:'rgba(183,28,28,.25)', border:'#c62828',
+      wave: EKG_SVG.Asystole, tag:'NON-SHOCKABLE', tagBg:'rgba(183,28,28,.5)', tagColor:'#ffcdd2'
+    },
+    {
+      label:'📉 PEA',
+      sub:'Pulseless Electrical Activity',
+      desc:'มี QRS แต่คลำชีพจรไม่ได้',
+      rhythm:'PEA', color:'rgba(191,54,12,.25)', border:'#bf360c',
+      wave: EKG_SVG.PEA, tag:'NON-SHOCKABLE', tagBg:'rgba(191,54,12,.5)', tagColor:'#fbe9e7'
+    },
+    {
+      label:'✅ คลำชีพจรได้ — ROSC!',
+      sub:'Return of Spontaneous Circulation',
+      desc:'มี organized rhythm + คลำชีพจรได้ชัดเจน',
+      rhythm:'ROSC', color:'rgba(0,77,64,.35)', border:'#00796b',
+      wave: EKG_SVG.ROSC, tag:'🫀 มีชีพจร', tagBg:'rgba(0,121,107,.6)', tagColor:'#e0f2f1'
+    }
   ];
-  let html = '<div class="ekg-check-box"><div class="ekg-check-title">⏱ ครบ 2 นาที — ดู EKG แล้ว?</div>';
+
+  const titleTxt = isInitial
+    ? '🚨 CODE BLUE — EKG เริ่มต้นเป็นอะไร?'
+    : '⏱ ครบ 2 นาที — EKG ตอนนี้เป็นอะไร?';
+
+  let html = `<div class="ekg-check-box">
+    <div class="ekg-check-title">${titleTxt}</div>`;
+
   choices.forEach(c => {
-    html += `<button class="ekg-choice-btn" style="background:${c.color};border-color:${c.border};color:#fff" onclick="handleEKGChoice('${c.rhythm}')"><b>${c.label}</b><br><span style="font-size:12px;opacity:.8">${c.sub}</span></button>`;
+    html += `<button class="ekg-choice-btn" style="background:${c.color};border-color:${c.border}" onclick="handleEKGChoice('${c.rhythm}')">
+      ${c.wave}
+      <div class="ekg-choice-inner" style="color:#fff">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
+          <span style="font-size:15px;font-weight:800">${c.label}</span>
+          <span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;background:${c.tagBg};color:${c.tagColor}">${c.tag}</span>
+        </div>
+        <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.9);margin-bottom:1px">${c.sub}</div>
+        <div style="font-size:11px;opacity:.7">${c.desc}</div>
+      </div>
+    </button>`;
   });
-  html += '<button onclick="closeEKGCheck()" style="width:100%;padding:9px;border:none;background:transparent;color:var(--muted);cursor:pointer;font-family:Sarabun,sans-serif;font-size:13px;margin-top:4px">ยกเลิก</button></div>';
+
+  if (!isInitial) {
+    html += `<button onclick="closeEKGCheck()" style="width:100%;padding:9px;border:none;background:transparent;color:var(--muted);cursor:pointer;font-family:Sarabun,sans-serif;font-size:13px;margin-top:4px">ยกเลิก</button>`;
+  }
+  html += `</div>`;
   overlay.innerHTML = html;
   document.body.appendChild(overlay);
 }
