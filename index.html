@@ -1017,7 +1017,8 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbyV4XQ6_NCwEDgW1EGadB7I
 async function gasCall(action, payload) {
   const res = await fetch(GAS_URL, {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
+    redirect: 'follow',                              // ✅ เพิ่ม
+    headers: {'Content-Type': 'text/plain;charset=utf-8'},  // ✅ เปลี่ยน
     body: JSON.stringify({action, ...payload})
   });
   if (!res.ok) throw new Error('GAS error: HTTP ' + res.status);
