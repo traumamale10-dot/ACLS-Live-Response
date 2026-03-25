@@ -964,6 +964,79 @@ body.light .vs-input{background:#fff;border-color:var(--border);color:var(--text
       <div id="pulseAlgoBox" style="display:none;margin-top:12px">
         <div class="algo-container" id="pulseAlgoContent"></div>
       </div>
+
+      <!-- Vital Signs หลังรักษา — Dropdown -->
+      <div id="pulseVSPanel" style="display:none;margin-top:8px;border:1px solid rgba(26,115,232,.4);border-radius:10px;overflow:hidden">
+        <button onclick="togglePulseVSBody()" style="width:100%;padding:11px 14px;background:rgba(26,115,232,.1);border:none;cursor:pointer;
+          display:flex;align-items:center;justify-content:space-between;font-family:'Sarabun',sans-serif">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:14px">📊</span>
+            <span style="font-size:13px;font-weight:700;color:#82b1ff">Vital Signs หลังการรักษา</span>
+            <span id="pulseVSBadge" style="font-size:10px;color:var(--muted)">ยังไม่บันทึก</span>
+          </div>
+          <span id="pulseVSChevron" style="color:#82b1ff;font-size:14px;transition:transform .2s">▾</span>
+        </button>
+        <div id="pulseVSBody" style="display:none;padding:12px;border-top:1px solid rgba(26,115,232,.3)">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+            <div>
+              <div style="font-size:10px;color:var(--muted);margin-bottom:3px">BP (mmHg)</div>
+              <div style="display:flex;gap:4px;align-items:center">
+                <input id="pvs_sbp" type="number" placeholder="SBP"
+                  style="width:100%;padding:6px 8px;background:rgba(255,255,255,.07);border:1px solid rgba(26,115,232,.35);border-radius:6px;color:var(--text);font-size:14px;font-weight:700;text-align:center;font-family:'Sarabun',sans-serif"
+                  oninput="evalPulseVS()">
+                <span style="color:var(--muted)">/</span>
+                <input id="pvs_dbp" type="number" placeholder="DBP"
+                  style="width:100%;padding:6px 8px;background:rgba(255,255,255,.07);border:1px solid rgba(26,115,232,.35);border-radius:6px;color:var(--text);font-size:14px;font-weight:700;text-align:center;font-family:'Sarabun',sans-serif"
+                  oninput="evalPulseVS()">
+              </div>
+              <div id="pvs_bp_r" style="font-size:10px;margin-top:2px;min-height:14px"></div>
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--muted);margin-bottom:3px">HR (bpm)</div>
+              <input id="pvs_hr" type="number" placeholder="HR"
+                style="width:100%;padding:6px 8px;background:rgba(255,255,255,.07);border:1px solid rgba(26,115,232,.35);border-radius:6px;color:var(--text);font-size:14px;font-weight:700;text-align:center;font-family:'Sarabun',sans-serif"
+                oninput="evalPulseVS()">
+              <div id="pvs_hr_r" style="font-size:10px;margin-top:2px;min-height:14px"></div>
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--muted);margin-bottom:3px">SpO₂ (%)</div>
+              <input id="pvs_spo2" type="number" placeholder="SpO₂"
+                style="width:100%;padding:6px 8px;background:rgba(255,255,255,.07);border:1px solid rgba(26,115,232,.35);border-radius:6px;color:var(--text);font-size:14px;font-weight:700;text-align:center;font-family:'Sarabun',sans-serif"
+                oninput="evalPulseVS()">
+              <div id="pvs_spo2_r" style="font-size:10px;margin-top:2px;min-height:14px"></div>
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--muted);margin-bottom:3px">Rhythm ที่เห็น</div>
+              <select id="pvs_rhythm" style="width:100%;padding:6px 8px;background:rgba(255,255,255,.07);border:1px solid rgba(26,115,232,.35);border-radius:6px;color:var(--text);font-size:12px;font-family:'Sarabun',sans-serif">
+                <option value="">-- ประเมิน --</option>
+                <option>NSR — Sinus Normal</option>
+                <option>Sinus Tachycardia</option>
+                <option>Sinus Bradycardia</option>
+                <option>AF/Flutter คงอยู่</option>
+                <option>SVT คงอยู่</option>
+                <option>VT คงอยู่</option>
+                <option>AV Block คงอยู่</option>
+                <option>ROSC — คลำชีพจรได้</option>
+              </select>
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--muted);margin-bottom:3px">GCS</div>
+              <input id="pvs_gcs" type="number" placeholder="GCS" min="3" max="15"
+                style="width:100%;padding:6px 8px;background:rgba(255,255,255,.07);border:1px solid rgba(26,115,232,.35);border-radius:6px;color:var(--text);font-size:14px;font-weight:700;text-align:center;font-family:'Sarabun',sans-serif"
+                oninput="evalPulseVS()">
+              <div id="pvs_gcs_r" style="font-size:10px;margin-top:2px;min-height:14px"></div>
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--muted);margin-bottom:3px">SpO₂ หมายเหตุ / EtCO₂</div>
+              <input id="pvs_note" type="text" placeholder="เช่น EtCO₂ 38, Pale..."
+                style="width:100%;padding:6px 8px;background:rgba(255,255,255,.07);border:1px solid rgba(26,115,232,.35);border-radius:6px;color:var(--text);font-size:12px;font-family:'Sarabun',sans-serif">
+            </div>
+          </div>
+          <div id="pvs_assessment" style="margin-bottom:8px;min-height:20px"></div>
+          <button class="btn btn-full" style="background:rgba(26,115,232,.2);border:1px solid rgba(26,115,232,.5);color:#82b1ff;font-size:13px;padding:8px"
+            onclick="savePulseVS()">💾 บันทึก Vital Signs หลังรักษา</button>
+        </div>
+      </div>
     </div>
 
     <button class="btn btn-success btn-full btn-lg" style="margin-bottom:8px" onclick="showSummary()">📋 → สรุปเคส</button>
@@ -1315,50 +1388,103 @@ const ALGO = {
     ]
   },
   Asystole:null, PEA:null,
-  SVT:{title:"SVT — Narrow Complex Tachycardia",color:"#188038",steps:[
-    {text:"ประเมิน Hemodynamic: BP, SpO₂",action:null},
-    {text:"Unstable → Sync Cardioversion 50-100J",action:"shock",drug:"⚡ Sync Cardioversion 50J"},
-    {text:"Stable → Vagal maneuver (Valsalva, ice water)",action:null},
-    {text:"Adenosine 6mg IV rapid + flush NSS 20mL",action:"drug",drug:"💉 Adenosine 6mg IV rapid"},
-    {text:"ไม่สำเร็จ → Adenosine 12mg IV (ซ้ำได้ 2 ครั้ง)",action:"drug",drug:"💉 Adenosine 12mg IV"},
-    {text:"ไม่สำเร็จ → Diltiazem 20mg IV slow",action:"drug",drug:"💊 Diltiazem/Metoprolol IV"}
-  ]},
-  AF:{title:"AF / Flutter — New Onset",color:"#188038",steps:[
-    {text:"ประเมิน onset (≤48hr vs &gt;48hr), Hemodynamic",action:null},
-    {text:"Unstable → Sync Cardioversion 120-200J Biphasic",action:"shock",drug:"⚡ Sync Cardioversion 120J"},
-    {text:"Rate Control: Diltiazem 15-20mg IV slow push",action:"drug",drug:"💊 Diltiazem 15mg IV /2min"},
-    {text:"หรือ Metoprolol 5mg IV slow (max 15mg)",action:"drug",drug:"💊 Metoprolol 5mg IV"},
-    {text:"Anticoagulation — CHA₂DS₂-VASc score",action:null},
-    {text:"onset ≤48hr: พิจารณา Rhythm Control",action:null}
-  ]},
-  SinusBrady:{title:"Sinus Bradycardia — Symptomatic",color:"#f9ab00",steps:[
-    {text:"ประเมิน: BP ต่ำ, syncope, chest pain, HF?",action:null},
-    {text:"Atropine 0.5mg IV — ซ้ำทุก 3-5 min (max 3mg)",action:"drug",drug:"💉 Atropine 0.5mg IV"},
-    {text:"ไม่ตอบสนอง: Dopamine 2-10 mcg/kg/min drip",action:"drug",drug:"💊 Dopamine drip"},
-    {text:"หรือ Epinephrine drip 2-10 mcg/min",action:"epi",drug:"💉 Epi drip"},
-    {text:"TCP (Transcutaneous Pacing) rate 60-70 bpm",action:null}
-  ]},
-  AVBlock:{title:"AV Block 2nd/3rd Degree",color:"#f9ab00",steps:[
-    {text:"Atropine 0.5mg IV",action:"drug",drug:"💉 Atropine 0.5mg IV"},
-    {text:"TCP ทันทีถ้า Atropine ไม่ตอบสนอง",action:null},
-    {text:"Dopamine หรือ Epi drip ระหว่างรอ Pacing",action:"drug",drug:"💊 Dopamine/Epi drip"},
-    {text:"ปรึกษา Cardiology → Transvenous Pacing",action:null}
-  ]},
-  VT_pulse:{title:"VT with Pulse",color:"#f9ab00",steps:[
-    {text:"ประเมิน Stable vs Unstable",action:null},
-    {text:"Unstable → Sync Cardioversion 100J",action:"shock",drug:"⚡ Sync Cardioversion 100J"},
-    {text:"Stable: Amiodarone 150mg IV / 10 นาที",action:"amio",drug:"💊 Amiodarone 150mg IV/10min"},
-    {text:"Amiodarone drip: 1mg/min 6h → 0.5mg/min 18h",action:null},
-    {text:"ปรึกษา Cardiology",action:null}
-  ]},
-  STEMI:{title:"STEMI — ST Elevation MI",color:"#1a73e8",steps:[
-    {text:"Aspirin 300mg PO + O₂ ถ้า SpO₂ &lt;94%",action:"drug",drug:"💊 Aspirin 300mg PO"},
-    {text:"Heparin 60U/kg IV bolus (max 4000U)",action:"drug",drug:"💉 Heparin IV bolus"},
-    {text:"Morphine 2-4mg IV ถ้าปวดมาก",action:"drug",drug:"💉 Morphine IV prn"},
-    {text:"<b>Door-to-Balloon ≤90 นาที</b> — เปิด Cath Lab!",action:null},
-    {text:"ไม่มี PCI 120 นาที → tPA Alteplase",action:"drug",drug:"💊 tPA Alteplase"},
-    {text:"Monitor 12-lead EKG, Troponin serial",action:null}
-  ]}
+  SVT:{title:"SVT — Narrow Complex Tachycardia",color:"#188038",
+    unstableSteps:[
+      {text:"<b>Unstable SVT</b> → Sedation ก่อน (ถ้าเวลาอำนวย)",action:"drug",drug:"💉 Midazolam 2mg IV"},
+      {text:"Sync Cardioversion ครั้งที่ 1 — <b>50J</b> Biphasic",action:"shock",drug:"⚡ Sync Cardioversion 50J"},
+      {text:"ไม่สำเร็จ → Sync Cardioversion ครั้งที่ 2 — <b>100J</b>",action:"shock",drug:"⚡ Sync Cardioversion 100J"},
+      {text:"ประเมิน Vital Signs หลังการรักษา",action:"vs_check"},
+    ],
+    stableSteps:[
+      {text:"Vagal maneuver — Valsalva / Modified Valsalva",action:null},
+      {text:"Adenosine 6mg IV rapid push + NSS 20mL flush",action:"drug",drug:"💉 Adenosine 6mg IV rapid"},
+      {text:"ไม่สำเร็จ → Adenosine 12mg IV rapid push",action:"drug",drug:"💉 Adenosine 12mg IV"},
+      {text:"ไม่สำเร็จ → Diltiazem 20mg IV slow (หรือ Metoprolol 5mg IV)",action:"drug",drug:"💊 Diltiazem 20mg IV"},
+      {text:"ยังไม่สำเร็จ → Sync Cardioversion 100J + Cardiology consult",action:"shock",drug:"⚡ Sync Cardioversion 100J"},
+      {text:"ประเมิน Vital Signs หลังการรักษา",action:"vs_check"},
+    ]
+  },
+  AF:{title:"AF / Flutter — New Onset",color:"#188038",
+    unstableSteps:[
+      {text:"<b>Unstable AF/Flutter</b> → Sedation ก่อน (ถ้าเวลาอำนวย)",action:"drug",drug:"💉 Midazolam 2mg IV"},
+      {text:"Sync Cardioversion ครั้งที่ 1 — <b>120J</b> Biphasic",action:"shock",drug:"⚡ Sync Cardioversion 120J"},
+      {text:"ไม่สำเร็จ → Sync Cardioversion ครั้งที่ 2 — <b>200J</b>",action:"shock",drug:"⚡ Sync Cardioversion 200J"},
+      {text:"ประเมิน Vital Signs หลังการรักษา",action:"vs_check"},
+    ],
+    stableSteps:[
+      {text:"ประเมิน Onset: ≤48hr หรือ >48hr และ Hemodynamic status",action:null},
+      {text:"Rate Control: Diltiazem 15-20mg IV slow push / 2min<br><small style='color:#ffd54f'>⚠ ระวัง: ห้ามใช้ใน preexcited AF หรือ decompensated HF</small>",action:"drug",drug:"💊 Diltiazem 15-20mg IV"},
+      {text:"หรือ Metoprolol 5mg IV slow (max 15mg รวม)<br><small style='color:#ffd54f'>⚠ ห้ามใน decompensated HF</small>",action:"drug",drug:"💊 Metoprolol 5mg IV"},
+      {text:"Anticoagulation — ประเมิน CHA₂DS₂-VASc score",action:null},
+      {text:"Onset ≤48hr: พิจารณา Rhythm Control / Cardioversion (120J → 200J)",action:null},
+      {text:"Onset >48hr: anticoagulate ≥3 สัปดาห์ก่อน elective cardioversion",action:null},
+      {text:"ประเมิน Vital Signs หลังการรักษา",action:"vs_check"},
+    ]
+  },
+  SinusBrady:{title:"Sinus Bradycardia — Symptomatic",color:"#f9ab00",
+    unstableSteps:[
+      {text:"ประเมิน: BP ต่ำ / Altered mental status / Signs of shock / Chest pain / HF",action:null},
+      {text:"Atropine <b>1mg IV bolus</b> — ซ้ำทุก 3-5 min (max 3mg รวม)<br><small style='color:var(--muted)'>ACLS 2025: เปลี่ยนจาก 0.5mg → 1mg</small>",action:"drug",drug:"💉 Atropine 1mg IV"},
+      {text:"ไม่ตอบสนอง → TCP (Transcutaneous Pacing) rate 60-70 bpm",action:null},
+      {text:"Dopamine <b>5-20 mcg/kg/min</b> drip ขณะรอ / ระหว่าง Pacing",action:"drug",drug:"💊 Dopamine 5-20 mcg/kg/min drip"},
+      {text:"หรือ Epinephrine drip 2-10 mcg/min (ทางเลือก)",action:"epi",drug:"💉 Epi drip 2-10 mcg/min"},
+      {text:"Cardiology consult → Transvenous Pacing (TVP)",action:null},
+      {text:"ประเมิน Vital Signs หลังการรักษา",action:"vs_check"},
+    ],
+    stableSteps:[
+      {text:"<b>Stable</b>: Monitor continuous, หา reversible cause",action:null},
+      {text:"12-lead EKG, BMP, Troponin, Thyroid function",action:null},
+      {text:"หยุดยาที่อาจเป็นสาเหตุ: Beta-blocker, CCB, Digoxin",action:null},
+      {text:"Atropine 1mg IV ถ้า symptomatic มากขึ้น",action:"drug",drug:"💉 Atropine 1mg IV"},
+      {text:"ประเมิน Vital Signs หลังการรักษา",action:"vs_check"},
+    ]
+  },
+  AVBlock:{title:"AV Block 2nd/3rd Degree",color:"#f9ab00",
+    unstableSteps:[
+      {text:"<b>Type II 2nd degree / 3rd degree</b>: Pacing ทันที — Atropine มักไม่ได้ผล",action:null},
+      {text:"Atropine 1mg IV — อาจช่วยได้ใน Type I / narrow QRS เท่านั้น",action:"drug",drug:"💉 Atropine 1mg IV"},
+      {text:"TCP (Transcutaneous Pacing) rate 60-70 bpm — ทันทีถ้า Atropine ไม่ตอบสนอง",action:null},
+      {text:"Dopamine 5-20 mcg/kg/min drip ระหว่างรอ Pacing",action:"drug",drug:"💊 Dopamine 5-20 mcg/kg/min"},
+      {text:"Cardiology consult → Transvenous Pacing (TVP) ถาวร",action:null},
+      {text:"ประเมิน Vital Signs หลังการรักษา",action:"vs_check"},
+    ],
+    stableSteps:[
+      {text:"<b>1st degree / Type I Wenckebach</b>: Monitor, มักไม่ต้องรักษา",action:null},
+      {text:"12-lead EKG, หา reversible cause: ischemia, electrolytes, drugs",action:null},
+      {text:"หยุดยาที่อาจเป็นสาเหตุ (Beta-blocker, CCB, Digoxin)",action:null},
+      {text:"Admit + monitor continuous + Cardiology consult",action:null},
+      {text:"ประเมิน Vital Signs หลังการรักษา",action:"vs_check"},
+    ]
+  },
+  VT_pulse:{title:"VT with Pulse",color:"#f9ab00",
+    unstableSteps:[
+      {text:"<b>Unstable VT</b> → Sedation ก่อน (ถ้าเวลาอำนวย)",action:"drug",drug:"💉 Midazolam 2mg IV"},
+      {text:"Sync Cardioversion ครั้งที่ 1 — <b>50J</b> Biphasic",action:"shock",drug:"⚡ Sync Cardioversion 50J"},
+      {text:"ไม่สำเร็จ → Sync Cardioversion ครั้งที่ 2 — <b>100J</b>",action:"shock",drug:"⚡ Sync Cardioversion 100J"},
+      {text:"Amiodarone 150mg IV / 10 นาที หลัง Cardioversion",action:"amio",drug:"💊 Amiodarone 150mg IV/10min"},
+      {text:"ประเมิน Vital Signs หลังการรักษา",action:"vs_check"},
+    ],
+    stableSteps:[
+      {text:"<b>Stable monomorphic VT</b>: Amiodarone 150mg IV / 10 นาที",action:"amio",drug:"💊 Amiodarone 150mg IV/10min"},
+      {text:"Amiodarone drip: 1mg/min × 6h → 0.5mg/min × 18h",action:null},
+      {text:"ทางเลือก: Procainamide 20-50mg/min IV (max 17mg/kg)<br><small style='color:#ffd54f'>⚠ หลีกเลี่ยงถ้า QT prolonged หรือ HF</small>",action:"drug",drug:"💊 Procainamide IV infusion"},
+      {text:"ทางเลือก: Sotalol 100mg IV / 5min<br><small style='color:#ffd54f'>⚠ หลีกเลี่ยงถ้า QT prolonged</small>",action:"drug",drug:"💊 Sotalol 100mg IV"},
+      {text:"ยาไม่สำเร็จ → Sync Cardioversion 100J + Cardiology consult",action:"shock",drug:"⚡ Sync Cardioversion 100J"},
+      {text:"ประเมิน Vital Signs หลังการรักษา",action:"vs_check"},
+    ]
+  },
+  STEMI:{title:"STEMI — ST Elevation MI",color:"#1a73e8",
+    stableSteps:[
+      {text:"Aspirin 300mg chew PO + O₂ ถ้า SpO₂ &lt;94%",action:"drug",drug:"💊 Aspirin 300mg PO"},
+      {text:"Heparin 60U/kg IV bolus (max 4,000U)",action:"drug",drug:"💉 Heparin IV bolus"},
+      {text:"Nitroglycerin SL ถ้าเจ็บหน้าอกและ SBP ≥90 mmHg",action:"drug",drug:"💊 NTG SL"},
+      {text:"Morphine 2-4mg IV ถ้าปวดมาก ไม่ตอบสนอง NTG",action:"drug",drug:"💉 Morphine 2-4mg IV"},
+      {text:"<b>Door-to-Balloon ≤90 นาที</b> — activate Cath Lab ทันที!",action:null},
+      {text:"ไม่มี PCI ภายใน 120 นาที → Fibrinolytic: tPA Alteplase",action:"drug",drug:"💊 tPA Alteplase"},
+      {text:"12-lead EKG serial, Troponin, monitor continuous",action:null},
+      {text:"ประเมิน Vital Signs หลังการรักษา",action:"vs_check"},
+    ]
+  }
 };
 
 const DRUGS = [
@@ -2557,12 +2683,314 @@ function updateFluidHistory(){
 }
 function removeFluid(idx){S.fluids=S.fluids||[];S.fluids.splice(idx,1);updateFluidHistory();toast('🗑 ลบรายการสารน้ำแล้ว');}
 
-function showPulseAlgo(rhythm){
-  const algo=ALGO[rhythm];if(!algo)return;
-  const box=document.getElementById('pulseAlgoBox'),content=document.getElementById('pulseAlgoContent');
-  let html='<div class="algo-header" style="color:'+(algo.color||'#82b1ff')+'">🧠 '+algo.title+'</div>';
-  algo.steps.forEach((step,i)=>{html+='<div style="padding:8px 10px;border-radius:7px;background:rgba(255,255,255,.04);margin-bottom:6px;font-size:14px;display:flex;gap:8px;align-items:flex-start"><div style="width:22px;height:22px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">'+(i+1)+'</div><div>'+step.text+(step.drug?'<div class="step-drug">'+step.drug+'</div>':'')+'</div></div>';});
-  content.innerHTML=html;box.style.display='';box.scrollIntoView({behavior:'smooth',block:'start'});
+// ══════════════════════════════════════════
+//  PULSE ALGO — Interactive step engine
+// ══════════════════════════════════════════
+let PS = { rhythm: null, stepIdx: 0, stability: null }; // pulse state แยกจาก CPR state
+
+// ── ประเมิน Stable/Unstable จาก S.vitals ──
+function _assessStability() {
+  const v = S.vitals || {};
+  const sbp = parseFloat(v.sbp);
+  const gcs = parseFloat(v.gcs);
+  const spo2 = parseFloat(v.spo2);
+
+  const findings = [];
+  let isUnstable = false;
+
+  // BP drop — SBP < 90
+  if (!isNaN(sbp)) {
+    if (sbp < 90) {
+      findings.push({ txt: `BP ต่ำ — SBP ${sbp} mmHg (<90)`, bad: true });
+      isUnstable = true;
+    } else {
+      findings.push({ txt: `SBP ${sbp} mmHg`, bad: false });
+    }
+  }
+
+  // Unconscious — GCS ≤ 8
+  if (!isNaN(gcs)) {
+    if (gcs <= 8) {
+      findings.push({ txt: `ไม่รู้สึกตัว — GCS ${gcs} ≤8`, bad: true });
+      isUnstable = true;
+    } else if (gcs < 13) {
+      findings.push({ txt: `ซึมลง — GCS ${gcs}`, bad: true });
+      isUnstable = true;
+    } else {
+      findings.push({ txt: `GCS ${gcs} — รู้สึกตัวดี`, bad: false });
+    }
+  }
+
+  // SpO2 ต่ำ — sign of poor perfusion
+  if (!isNaN(spo2)) {
+    if (spo2 < 90) {
+      findings.push({ txt: `SpO₂ ${spo2}% ต่ำมาก`, bad: true });
+      isUnstable = true;
+    } else {
+      findings.push({ txt: `SpO₂ ${spo2}%`, bad: false });
+    }
+  }
+
+  return { isUnstable, findings };
+}
+
+function showPulseAlgo(rhythm) {
+  const algo = ALGO[rhythm]; if (!algo) return;
+  PS.rhythm = rhythm; PS.stepIdx = 0; PS.stability = null;
+  addTimeline('💚 เริ่ม Algo: ' + algo.title, 'rhythm');
+  if (!algo.stableSteps && !algo.unstableSteps) {
+    PS.stability = 'stable';
+    const box = document.getElementById('pulseAlgoBox');
+    box.style.display = '';
+    _renderPulseAlgo();
+  } else {
+    const box = document.getElementById('pulseAlgoBox');
+    box.style.display = '';
+    _renderStabilitySelector(rhythm, algo);
+  }
+  setTimeout(() => document.getElementById('pulseAlgoBox').scrollIntoView({ behavior:'smooth', block:'start' }), 100);
+}
+
+function _renderStabilitySelector(rhythm, algo) {
+  const { isUnstable, findings } = _assessStability();
+  const hasVitals = findings.length > 0;
+
+  const vitalHTML = hasVitals
+    ? findings.map(f => '<span style="padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:' +
+        (f.bad ? 'rgba(217,48,37,.2)' : 'rgba(24,128,56,.15)') + ';color:' +
+        (f.bad ? '#ef9a9a' : '#81c784') + '">' + f.txt + '</span>').join(' ')
+    : '<span style="color:var(--muted);font-size:11px">ยังไม่ได้บันทึก Vital Signs</span>';
+
+  const autoLabel = hasVitals
+    ? (isUnstable
+        ? '<div style="margin-top:6px;padding:6px 10px;border-radius:6px;background:rgba(217,48,37,.15);border:1px solid rgba(217,48,37,.4)"><span style="color:#ef5350;font-weight:800;font-size:12px">⚠ ประเมินจาก Vitals: แนะนำ UNSTABLE</span></div>'
+        : '<div style="margin-top:6px;padding:6px 10px;border-radius:6px;background:rgba(24,128,56,.1);border:1px solid rgba(24,128,56,.35)"><span style="color:#81c784;font-weight:800;font-size:12px">✅ ประเมินจาก Vitals: แนะนำ STABLE</span></div>')
+    : '';
+
+  const unstableBg  = isUnstable ? 'rgba(217,48,37,.25)' : 'rgba(217,48,37,.1)';
+  const unstableShadow = isUnstable ? 'box-shadow:0 0 16px rgba(217,48,37,.5);' : '';
+  const unstableRec = isUnstable ? '<div style="margin-top:6px;font-size:10px;font-weight:800;color:#ef5350">← แนะนำจาก Vitals</div>' : '';
+  const stableBg    = (!isUnstable && hasVitals) ? 'rgba(24,128,56,.2)' : 'rgba(24,128,56,.08)';
+  const stableShadow= (!isUnstable && hasVitals) ? 'box-shadow:0 0 16px rgba(24,128,56,.4);' : '';
+  const stableRec   = (!isUnstable && hasVitals) ? '<div style="margin-top:6px;font-size:10px;font-weight:800;color:#81c784">← แนะนำจาก Vitals</div>' : '';
+
+  document.getElementById('pulseAlgoContent').innerHTML =
+    '<div>' +
+    '<div style="font-size:15px;font-weight:800;color:' + (algo.color||'#82b1ff') + ';margin-bottom:10px">🧠 ' + algo.title + '</div>' +
+
+    '<div style="background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:10px">' +
+      '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">📊 Vital Signs ล่าสุด</div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:5px">' + vitalHTML + '</div>' +
+      autoLabel +
+    '</div>' +
+
+    '<div style="background:rgba(217,48,37,.07);border:1px solid rgba(217,48,37,.3);border-radius:8px;padding:10px;margin-bottom:12px">' +
+      '<div style="font-size:11px;font-weight:800;color:#ef9a9a;margin-bottom:8px">⚠ เกณฑ์ UNSTABLE — มีอย่างน้อย 1 ข้อ = Unstable</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;font-size:12px">' +
+        '<div style="padding:5px 8px;border-radius:6px;background:rgba(255,255,255,.05);color:var(--text)">😵 ไม่รู้สึกตัว (Unconscious)</div>' +
+        '<div style="padding:5px 8px;border-radius:6px;background:rgba(255,255,255,.05);color:var(--text)">💔 เจ็บหน้าอก (Chest Pain)</div>' +
+        '<div style="padding:5px 8px;border-radius:6px;background:rgba(255,255,255,.05);color:var(--text)">🫁 หัวใจล้มเหลว (Heart Failure)</div>' +
+        '<div style="padding:5px 8px;border-radius:6px;background:rgba(255,255,255,.05);color:var(--text)">📉 BP ต่ำ (&lt;90 mmHg)</div>' +
+        '<div style="padding:5px 8px;border-radius:6px;background:rgba(255,255,255,.05);color:var(--text);grid-column:1/-1">🥶 Signs of Shock — เหงื่อออก / ตัวเย็น / Cyanosis</div>' +
+      '</div>' +
+    '</div>' +
+
+    '<div style="font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:700;text-align:center">ผู้ป่วยอยู่ในภาวะใด?</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
+      '<button onclick="selectPulseStability(\'unstable\')" style="padding:16px 10px;border-radius:12px;border:2px solid rgba(217,48,37,.7);background:' + unstableBg + ';color:#ef9a9a;font-family:Sarabun,sans-serif;cursor:pointer;text-align:center;' + unstableShadow + '">' +
+        '<div style="font-size:22px;margin-bottom:4px">⚠</div>' +
+        '<div style="font-size:15px;font-weight:800">Unstable</div>' +
+        '<div style="font-size:10px;opacity:.8;margin-top:3px;line-height:1.5">ไม่รู้สึกตัว / เจ็บหน้าอก<br>Heart Failure / BP ต่ำ / Shock</div>' +
+        unstableRec +
+      '</button>' +
+      '<button onclick="selectPulseStability(\'stable\')" style="padding:16px 10px;border-radius:12px;border:2px solid rgba(24,128,56,.7);background:' + stableBg + ';color:#81c784;font-family:Sarabun,sans-serif;cursor:pointer;text-align:center;' + stableShadow + '">' +
+        '<div style="font-size:22px;margin-bottom:4px">✅</div>' +
+        '<div style="font-size:15px;font-weight:800">Stable</div>' +
+        '<div style="font-size:10px;opacity:.8;margin-top:3px;line-height:1.5">รู้สึกตัวดี / ไม่เจ็บหน้าอก<br>BP ปกติ / ไม่มี Shock signs</div>' +
+        stableRec +
+      '</button>' +
+    '</div>' +
+    '</div>';
+}
+
+function selectPulseStability(stability) {
+  PS.stability = stability;
+  PS.stepIdx = 0;
+  addTimeline(`💚 ${ALGO[PS.rhythm]?.title} — ${stability === 'unstable' ? '⚠ Unstable' : '✅ Stable'}`, 'rhythm');
+  _renderPulseAlgo();
+}
+
+function _renderPulseAlgo() {
+  const algo = ALGO[PS.rhythm]; if (!algo) return;
+  // เลือก steps ตาม stability
+  const steps = PS.stability === 'unstable'
+    ? (algo.unstableSteps || algo.stableSteps || algo.steps || [])
+    : (algo.stableSteps || algo.steps || []);
+  const color = algo.color || '#82b1ff';
+  const stabLabel = PS.stability === 'unstable'
+    ? '<span style="background:rgba(217,48,37,.25);color:#ef9a9a;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:800">⚠ UNSTABLE PATH</span>'
+    : '<span style="background:rgba(24,128,56,.2);color:#81c784;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:800">✅ STABLE PATH</span>';
+
+  let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <div class="algo-header" style="color:${color};margin-bottom:0">🧠 ${algo.title}</div>
+      ${stabLabel}
+    </div>
+    <div style="display:flex;gap:6px">
+      <button onclick="_renderStabilitySelector('${PS.rhythm}',ALGO['${PS.rhythm}'])"
+        style="font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid var(--border);
+        background:transparent;color:var(--muted);cursor:pointer;font-family:'Sarabun',sans-serif">⇄ เปลี่ยน</button>
+      <button onclick="resetPulseAlgo()"
+        style="font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid var(--border);
+        background:transparent;color:var(--muted);cursor:pointer;font-family:'Sarabun',sans-serif">↺ รีเซ็ต</button>
+    </div>
+  </div>`;
+
+  steps.forEach((step, i) => {
+    const isDone    = i < PS.stepIdx;
+    const isCurrent = i === PS.stepIdx;
+    const isFuture  = i > PS.stepIdx;
+    const rowClass  = isDone ? 'done-step' : isCurrent ? 'next-step' : '';
+    const numClass  = isDone ? 'done' : isCurrent ? 'next' : '';
+    const numTxt    = isDone ? '✓' : i + 1;
+    const ds = isFuture ? 'opacity:.3;pointer-events:none;cursor:default;' : '';
+
+    html += `<div class="step-row ${rowClass}" id="pstep_${i}">
+      <div class="step-num ${numClass}">${numTxt}</div>
+      <div class="step-content">
+        ${isCurrent ? '<div class="next-badge">▶ ถัดไป</div> ' : ''}
+        ${step.text}
+        ${step.drug ? `<div class="step-drug">${step.drug}</div>` : ''}
+        ${_pulseActionBtn(step, i, ds)}
+      </div>
+    </div>`;
+  });
+
+  if (PS.stepIdx >= steps.length) {
+    html += `<div style="background:rgba(24,128,56,.15);border:1px solid #188038;border-radius:8px;
+      padding:12px;text-align:center;margin-top:6px">
+      <div style="font-size:18px;margin-bottom:4px">✅</div>
+      <div style="font-weight:800;color:#81c784">ครบทุก step แล้ว</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:2px">ประเมิน response และ monitor ต่อเนื่อง</div>
+    </div>`;
+  }
+
+  document.getElementById('pulseAlgoContent').innerHTML = html;
+}
+
+function _pulseActionBtn(step, i, ds) {
+  const a = step.action;
+  if (!a)          return `<button class="step-action-btn btn-log-cpr" style="background:#546e7a;${ds}" onclick="advancePulseStep()">✓ ทำแล้ว → ถัดไป</button>`;
+  if (a==='shock') return `<button class="step-action-btn btn-log-shock" style="${ds}" onclick="logShock();advancePulseStep()">⚡ Shock แล้ว → ถัดไป</button>`;
+  if (a==='epi')   return `<button class="step-action-btn btn-log-drug" style="${ds}" onclick="logEpi();advancePulseStep()">✓ ให้ยาแล้ว → ถัดไป</button>`;
+  if (a==='amio')  return `<button class="step-action-btn btn-log-drug" style="${ds}" onclick="logAmio();advancePulseStep()">✓ ให้ Amio แล้ว → ถัดไป</button>`;
+  if (a==='drug')  return `<button class="step-action-btn btn-log-drug" style="${ds}" onclick="logDrug('${(step.drug||'').replace(/[<>'"]/g,'')}');advancePulseStep()">✓ ให้ยาแล้ว → ถัดไป</button>`;
+  if (a==='vs_check') return `<button class="step-action-btn" style="background:rgba(26,115,232,.25);border:1px solid rgba(26,115,232,.5);color:#82b1ff;${ds}" onclick="togglePulseVS();advancePulseStep()">📊 บันทึก Vital Signs → เสร็จ</button>`;
+  return `<button class="step-action-btn btn-log-cpr" style="background:#546e7a;${ds}" onclick="advancePulseStep()">✓ ทำแล้ว → ถัดไป</button>`;
+}
+
+function togglePulseVS() {
+  const panel = document.getElementById('pulseVSPanel');
+  if (!panel) return;
+  panel.style.display = '';
+  // เปิด body อัตโนมัติ
+  const body = document.getElementById('pulseVSBody');
+  const chev = document.getElementById('pulseVSChevron');
+  if (body) body.style.display = 'block';
+  if (chev) { chev.style.transform = 'rotate(180deg)'; chev.textContent = '▴'; }
+  setTimeout(() => panel.scrollIntoView({ behavior:'smooth', block:'start' }), 100);
+}
+function togglePulseVSBody() {
+  const body = document.getElementById('pulseVSBody');
+  const chev = document.getElementById('pulseVSChevron');
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  if (chev) { chev.style.transform = open ? '' : 'rotate(180deg)'; chev.textContent = open ? '▾' : '▴'; }
+}
+function evalPulseVS() {
+  const g = id => parseFloat(document.getElementById(id)?.value);
+  const sbp = g('pvs_sbp'), dbp = g('pvs_dbp'), hr = g('pvs_hr');
+  const spo2 = g('pvs_spo2'), gcs = g('pvs_gcs');
+  const results = [];
+
+  if (!isNaN(sbp) && !isNaN(dbp)) {
+    const map = Math.round((sbp + 2*dbp)/3);
+    const col = map>=65 ? '#81c784' : '#ef5350';
+    document.getElementById('pvs_bp_r').innerHTML = `<span style="color:${col};font-weight:700">MAP ${map} ${map>=65?'✅':'⚠ ต่ำ'}</span>`;
+  }
+  if (!isNaN(hr)) {
+    const col = hr>=60&&hr<=100 ? '#81c784' : '#ffd54f';
+    document.getElementById('pvs_hr_r').innerHTML = `<span style="color:${col};font-weight:700">${hr<60?'⚠ Brady':hr>100?'⚠ Tachy':'✅ ปกติ'}</span>`;
+  }
+  if (!isNaN(spo2)) {
+    const col = spo2>=94 ? '#81c784' : '#ef5350';
+    document.getElementById('pvs_spo2_r').innerHTML = `<span style="color:${col};font-weight:700">${spo2<94?'⚠ ต่ำ':'✅'}</span>`;
+  }
+  if (!isNaN(gcs)) {
+    const col = gcs>=13 ? '#81c784' : gcs>=9 ? '#ffd54f' : '#ef5350';
+    document.getElementById('pvs_gcs_r').innerHTML = `<span style="color:${col};font-weight:700">${gcs<=8?'⚠ Altered':gcs<=12?'⚠ ลดลง':'✅'}</span>`;
+  }
+  // Overall assessment
+  const aEl = document.getElementById('pvs_assessment');
+  if (aEl) {
+    const unstable = (!isNaN(sbp)&&sbp<90) || (!isNaN(gcs)&&gcs<=8) || (!isNaN(spo2)&&spo2<90);
+    if (!isNaN(sbp)||!isNaN(hr)||!isNaN(spo2)) {
+      aEl.innerHTML = unstable
+        ? '<div style="padding:6px 10px;border-radius:6px;background:rgba(217,48,37,.15);border:1px solid rgba(217,48,37,.4);font-size:12px;color:#ef9a9a;font-weight:700">⚠ ยังมี Signs of Instability — พิจารณารักษาต่อ</div>'
+        : '<div style="padding:6px 10px;border-radius:6px;background:rgba(24,128,56,.12);border:1px solid rgba(24,128,56,.4);font-size:12px;color:#81c784;font-weight:700">✅ Hemodynamic Stable — ติดตาม monitor ต่อเนื่อง</div>';
+    }
+  }
+}
+function savePulseVS() {
+  const g = id => document.getElementById(id)?.value;
+  const sbp=g('pvs_sbp'), dbp=g('pvs_dbp'), hr=g('pvs_hr');
+  const spo2=g('pvs_spo2'), gcs=g('pvs_gcs'), rhythm=g('pvs_rhythm'), note=g('pvs_note');
+  const parts=[];
+  if(sbp&&dbp){const map=Math.round((+sbp+2*+dbp)/3);parts.push('BP '+sbp+'/'+dbp+' (MAP '+map+')');}
+  if(hr) parts.push('HR '+hr+' bpm');
+  if(spo2) parts.push('SpO₂ '+spo2+'%');
+  if(gcs) parts.push('GCS '+gcs);
+  if(rhythm) parts.push('Rhythm: '+rhythm);
+  if(note) parts.push(note);
+  if(!parts.length){toast('กรอก Vital Signs อย่างน้อย 1 ค่า');return;}
+  addTimeline('📊 Post-Tx VS: '+parts.join(' | '),'rosc');
+  const badge = document.getElementById('pulseVSBadge');
+  if(badge){badge.textContent=parts.length+' ค่า — บันทึกแล้ว';badge.style.color='#82b1ff';}
+  // ปิด body
+  const body=document.getElementById('pulseVSBody');
+  const chev=document.getElementById('pulseVSChevron');
+  if(body)body.style.display='none';
+  if(chev){chev.style.transform='';chev.textContent='▾';}
+  toast('✅ บันทึก Vital Signs หลังรักษาแล้ว','green');
+}
+
+function advancePulseStep() {
+  const algo = ALGO[PS.rhythm]; if (!algo) return;
+  const steps = PS.stability === 'unstable'
+    ? (algo.unstableSteps || algo.stableSteps || algo.steps || [])
+    : (algo.stableSteps || algo.steps || []);
+
+  const cur = document.getElementById('pstep_' + PS.stepIdx);
+  if (cur) {
+    cur.classList.remove('next-step'); cur.classList.add('done-step');
+    const num = cur.querySelector('.step-num');
+    if (num) { num.className='step-num done'; num.textContent='✓'; }
+    cur.querySelectorAll('button').forEach(b=>{ b.disabled=true; b.style.opacity='.35'; });
+    const badge = cur.querySelector('.next-badge'); if (badge) badge.remove();
+  }
+  PS.stepIdx++;
+  _renderPulseAlgo();
+  setTimeout(() => {
+    const next = document.getElementById('pstep_' + PS.stepIdx);
+    if (next) next.scrollIntoView({ behavior:'smooth', block:'center' });
+  }, 80);
+}
+
+function resetPulseAlgo() {
+  PS.stepIdx = 0; PS.stability = null;
+  _renderStabilitySelector(PS.rhythm, ALGO[PS.rhythm]);
+  toast('↺ รีเซ็ต Algo แล้ว');
 }
 function logDTXRosc(){
   const v=parseFloat(document.getElementById('dtxValueRosc').value);if(isNaN(v)){toast('กรอกค่า DTX ก่อน');return;}
