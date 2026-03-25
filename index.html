@@ -680,7 +680,146 @@ body.light .vs-input{background:#fff;border-color:var(--border);color:var(--text
         
       </div>
 
-      <button class="btn btn-rosc" onclick="confirmROSC()">✅ ROSC — มีชีพจรกลับมาแล้ว</button>
+      <!-- BLOOD GAS & LAB PANEL — Collapsible -->
+      <div style="background:rgba(156,39,176,.07);border:1px solid rgba(156,39,176,.35);border-radius:10px;margin-bottom:10px" id="labPanel">
+
+        <!-- Header / Toggle -->
+        <button onclick="toggleLabPanel()" id="labToggleBtn"
+          style="width:100%;padding:11px 14px;background:transparent;border:none;cursor:pointer;
+          display:flex;align-items:center;justify-content:space-between;font-family:'Sarabun',sans-serif">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:13px">🧪</span>
+            <span style="font-size:13px;font-weight:700;color:#ce93d8">Blood Gas / Lab</span>
+            <span id="labSentBadge" style="display:none;font-size:10px;padding:1px 8px;border-radius:10px;
+              background:rgba(156,39,176,.3);color:#e1bee7;font-weight:700">มีข้อมูล</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span id="labStatusSummary" style="font-size:10px;color:var(--muted)">ยังไม่ส่ง Lab</span>
+            <span id="labChevron" style="color:#ce93d8;font-size:14px;transition:transform .2s">▾</span>
+          </div>
+        </button>
+
+        <!-- Collapsible Body -->
+        <div id="labBody" style="display:none;padding:0 12px 12px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div style="font-size:10px;color:var(--muted)">กรอกค่าที่ได้รับ — ระบบวิเคราะห์ H's &amp; T's อัตโนมัติ</div>
+            <button onclick="analyzeLabCause()" id="labAnalyzeBtn"
+              style="font-size:11px;padding:4px 11px;border-radius:6px;border:1px solid rgba(156,39,176,.5);
+              background:rgba(156,39,176,.2);color:#ce93d8;cursor:pointer;font-family:'Sarabun',sans-serif;font-weight:700">
+              🔍 วิเคราะห์สาเหตุ
+            </button>
+          </div>
+
+          <!-- ABG -->
+          <div style="font-size:10px;color:#ce93d8;font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Arterial Blood Gas (ABG)</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px">
+            <div>
+              <div style="font-size:9px;color:var(--muted);margin-bottom:3px">pH</div>
+              <input id="lab_pH" type="number" step="0.01" min="6.5" max="8" placeholder="7.4"
+                style="width:100%;padding:7px 8px;background:rgba(255,255,255,.07);border:1px solid rgba(156,39,176,.35);border-radius:6px;color:var(--text);font-size:14px;font-weight:700;font-family:'Sarabun',sans-serif;text-align:center"
+                oninput="evalLabLive()">
+              <div id="lab_pH_r" style="font-size:10px;margin-top:2px;min-height:14px"></div>
+            </div>
+            <div>
+              <div style="font-size:9px;color:var(--muted);margin-bottom:3px">PaCO₂ (mmHg)</div>
+              <input id="lab_pco2" type="number" step="0.1" placeholder="40"
+                style="width:100%;padding:7px 8px;background:rgba(255,255,255,.07);border:1px solid rgba(156,39,176,.35);border-radius:6px;color:var(--text);font-size:14px;font-weight:700;font-family:'Sarabun',sans-serif;text-align:center"
+                oninput="evalLabLive()">
+              <div id="lab_pco2_r" style="font-size:10px;margin-top:2px;min-height:14px"></div>
+            </div>
+            <div>
+              <div style="font-size:9px;color:var(--muted);margin-bottom:3px">PaO₂ (mmHg)</div>
+              <input id="lab_po2" type="number" step="0.1" placeholder="80"
+                style="width:100%;padding:7px 8px;background:rgba(255,255,255,.07);border:1px solid rgba(156,39,176,.35);border-radius:6px;color:var(--text);font-size:14px;font-weight:700;font-family:'Sarabun',sans-serif;text-align:center"
+                oninput="evalLabLive()">
+              <div id="lab_po2_r" style="font-size:10px;margin-top:2px;min-height:14px"></div>
+            </div>
+            <div>
+              <div style="font-size:9px;color:var(--muted);margin-bottom:3px">HCO₃⁻ (mEq/L)</div>
+              <input id="lab_hco3" type="number" step="0.1" placeholder="24"
+                style="width:100%;padding:7px 8px;background:rgba(255,255,255,.07);border:1px solid rgba(156,39,176,.35);border-radius:6px;color:var(--text);font-size:14px;font-weight:700;font-family:'Sarabun',sans-serif;text-align:center"
+                oninput="evalLabLive()">
+              <div id="lab_hco3_r" style="font-size:10px;margin-top:2px;min-height:14px"></div>
+            </div>
+            <div>
+              <div style="font-size:9px;color:var(--muted);margin-bottom:3px">BE (mEq/L)</div>
+              <input id="lab_be" type="number" step="0.1" placeholder="0"
+                style="width:100%;padding:7px 8px;background:rgba(255,255,255,.07);border:1px solid rgba(156,39,176,.35);border-radius:6px;color:var(--text);font-size:14px;font-weight:700;font-family:'Sarabun',sans-serif;text-align:center"
+                oninput="evalLabLive()">
+              <div id="lab_be_r" style="font-size:10px;margin-top:2px;min-height:14px"></div>
+            </div>
+            <div>
+              <div style="font-size:9px;color:var(--muted);margin-bottom:3px">Lactate (mmol/L)</div>
+              <input id="lab_lac" type="number" step="0.1" placeholder="1.0"
+                style="width:100%;padding:7px 8px;background:rgba(255,255,255,.07);border:1px solid rgba(156,39,176,.35);border-radius:6px;color:var(--text);font-size:14px;font-weight:700;font-family:'Sarabun',sans-serif;text-align:center"
+                oninput="evalLabLive()">
+              <div id="lab_lac_r" style="font-size:10px;margin-top:2px;min-height:14px"></div>
+            </div>
+          </div>
+
+          <!-- Electrolytes & Basic Lab -->
+          <div style="font-size:10px;color:#ce93d8;font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Electrolytes / Lab</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px">
+            <div>
+              <div style="font-size:9px;color:var(--muted);margin-bottom:3px">K⁺ (mEq/L)</div>
+              <input id="lab_k" type="number" step="0.1" placeholder="4.0"
+                style="width:100%;padding:7px 8px;background:rgba(255,255,255,.07);border:1px solid rgba(156,39,176,.35);border-radius:6px;color:var(--text);font-size:14px;font-weight:700;font-family:'Sarabun',sans-serif;text-align:center"
+                oninput="evalLabLive()">
+              <div id="lab_k_r" style="font-size:10px;margin-top:2px;min-height:14px"></div>
+            </div>
+            <div>
+              <div style="font-size:9px;color:var(--muted);margin-bottom:3px">Na⁺ (mEq/L)</div>
+              <input id="lab_na" type="number" step="0.1" placeholder="140"
+                style="width:100%;padding:7px 8px;background:rgba(255,255,255,.07);border:1px solid rgba(156,39,176,.35);border-radius:6px;color:var(--text);font-size:14px;font-weight:700;font-family:'Sarabun',sans-serif;text-align:center"
+                oninput="evalLabLive()">
+              <div id="lab_na_r" style="font-size:10px;margin-top:2px;min-height:14px"></div>
+            </div>
+            <div>
+              <div style="font-size:9px;color:var(--muted);margin-bottom:3px">Ca²⁺ iCa (mmol/L)</div>
+              <input id="lab_ca" type="number" step="0.01" placeholder="1.15"
+                style="width:100%;padding:7px 8px;background:rgba(255,255,255,.07);border:1px solid rgba(156,39,176,.35);border-radius:6px;color:var(--text);font-size:14px;font-weight:700;font-family:'Sarabun',sans-serif;text-align:center"
+                oninput="evalLabLive()">
+              <div id="lab_ca_r" style="font-size:10px;margin-top:2px;min-height:14px"></div>
+            </div>
+            <div>
+              <div style="font-size:9px;color:var(--muted);margin-bottom:3px">Hb (g/dL)</div>
+              <input id="lab_hb" type="number" step="0.1" placeholder="12"
+                style="width:100%;padding:7px 8px;background:rgba(255,255,255,.07);border:1px solid rgba(156,39,176,.35);border-radius:6px;color:var(--text);font-size:14px;font-weight:700;font-family:'Sarabun',sans-serif;text-align:center"
+                oninput="evalLabLive()">
+              <div id="lab_hb_r" style="font-size:10px;margin-top:2px;min-height:14px"></div>
+            </div>
+            <div>
+              <div style="font-size:9px;color:var(--muted);margin-bottom:3px">Troponin</div>
+              <input id="lab_trop" type="number" step="0.001" placeholder="0.01"
+                style="width:100%;padding:7px 8px;background:rgba(255,255,255,.07);border:1px solid rgba(156,39,176,.35);border-radius:6px;color:var(--text);font-size:14px;font-weight:700;font-family:'Sarabun',sans-serif;text-align:center"
+                oninput="evalLabLive()">
+              <div id="lab_trop_r" style="font-size:10px;margin-top:2px;min-height:14px"></div>
+            </div>
+            <div>
+              <div style="font-size:9px;color:var(--muted);margin-bottom:3px">Mg²⁺ (mEq/L)</div>
+              <input id="lab_mg" type="number" step="0.1" placeholder="1.8"
+                style="width:100%;padding:7px 8px;background:rgba(255,255,255,.07);border:1px solid rgba(156,39,176,.35);border-radius:6px;color:var(--text);font-size:14px;font-weight:700;font-family:'Sarabun',sans-serif;text-align:center"
+                oninput="evalLabLive()">
+              <div id="lab_mg_r" style="font-size:10px;margin-top:2px;min-height:14px"></div>
+            </div>
+          </div>
+
+          <button class="btn btn-full" style="background:rgba(156,39,176,.2);border:1px solid rgba(156,39,176,.5);color:#ce93d8;font-size:13px;padding:8px;margin-bottom:6px"
+            onclick="saveLabValues()">💾 บันทึก Lab ลง Timeline</button>
+
+          <!-- ผลการวิเคราะห์สาเหตุ -->
+          <div id="labCauseResult" style="display:none;margin-top:8px;background:rgba(0,0,0,.2);border-radius:8px;padding:12px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <div style="font-size:12px;font-weight:800;color:#ce93d8">🔍 วิเคราะห์สาเหตุ H's &amp; T's จาก Lab</div>
+              <button onclick="document.getElementById('labCauseResult').style.display='none'"
+                style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0 4px">✕</button>
+            </div>
+            <div id="labCauseContent" style="font-size:13px;line-height:1.8;color:var(--text)"></div>
+          </div>
+        </div><!-- /labBody -->
+      </div><!-- /labPanel -->
+
+
       <button class="btn btn-full" onclick="confirmTerminate()" 
         style="margin-top:8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,59,92,.4);
         color:#ff8099;font-size:15px;padding:14px;border-radius:12px;">
@@ -1180,7 +1319,7 @@ let S = {
   currentStepIdx:0,  // step index ภายใน cycle ปัจจุบัน
   rhythmHistory:[],timeline:[],drugs:[],
   dtxLog:[],htCauses:[],intubated:false,roscTime:null,
-  vitals:{},roscCheckState:{},fluids:[]
+  vitals:{},roscCheckState:{},fluids:[],labValues:{}
 };
 let pedsMode_flag = false;
 
@@ -1751,6 +1890,237 @@ function ekgcheck_openWithFile(input) {
     };
     reader.readAsDataURL(file);
   }, 100);
+}
+
+function toggleLabPanel() {
+  const body = document.getElementById('labBody');
+  const chevron = document.getElementById('labChevron');
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
+  chevron.textContent = isOpen ? '▾' : '▴';
+}
+
+
+
+// helper: แสดงค่าพร้อม badge สี
+function _labBadge(val, low, high, unit, id, labelLow, labelHigh, labelNorm) {
+  const el = document.getElementById(id); if(!el) return;
+  if(val === null || val === '' || isNaN(val)) { el.textContent=''; return; }
+  let txt='', color='';
+  if(val < low)      { txt = '⬇ '+labelLow;  color='#ef5350'; }
+  else if(val > high){ txt = '⬆ '+labelHigh; color='#ffa726'; }
+  else               { txt = '✓ '+labelNorm;  color='#66bb6a'; }
+  el.innerHTML = `<span style="color:${color};font-weight:700">${txt}</span>`;
+}
+
+function evalLabLive() {
+  const g = id => { const v = parseFloat(document.getElementById(id)?.value); return isNaN(v) ? null : v; };
+  const pH   = g('lab_pH');
+  const pco2 = g('lab_pco2');
+  const po2  = g('lab_po2');
+  const hco3 = g('lab_hco3');
+  const be   = g('lab_be');
+  const lac  = g('lab_lac');
+  const k    = g('lab_k');
+  const na   = g('lab_na');
+  const ca   = g('lab_ca');
+  const hb   = g('lab_hb');
+  const trop = g('lab_trop');
+  const mg   = g('lab_mg');
+
+  _labBadge(pH,   7.35, 7.45, '', 'lab_pH_r',   'Acidosis', 'Alkalosis', 'Normal');
+  _labBadge(pco2, 35,   45,   '', 'lab_pco2_r', 'Hypocapnia', 'Hypercapnia', 'Normal');
+  _labBadge(po2,  80,   100,  '', 'lab_po2_r',  'Hypoxemia ⚠', 'Hyperoxia', 'Normal');
+  _labBadge(hco3, 22,   26,   '', 'lab_hco3_r', 'ต่ำ', 'สูง', 'Normal');
+  _labBadge(be,   -2,   2,    '', 'lab_be_r',   'Base Deficit ⚠', 'Base Excess', 'Normal');
+  _labBadge(lac,  0,    2,    '', 'lab_lac_r',  '', 'Hyperlactatemia ⚠', 'Normal');
+  _labBadge(k,    3.5,  5.5,  '', 'lab_k_r',   'Hypokalemia', 'Hyperkalemia ⚠', 'Normal');
+  _labBadge(na,   135,  145,  '', 'lab_na_r',  'Hyponatremia', 'Hypernatremia', 'Normal');
+  _labBadge(ca,   1.12, 1.32, '', 'lab_ca_r',  'Hypocalcemia ⚠', 'Hypercalcemia', 'Normal');
+  _labBadge(hb,   8,    18,   '', 'lab_hb_r',  'Anemia ⚠', 'สูง', 'Normal');
+  _labBadge(mg,   1.5,  2.5,  '', 'lab_mg_r',  'Hypomagnesemia ⚠', 'Hypermagnesemia', 'Normal');
+  if(trop !== null && document.getElementById('lab_trop_r')) {
+    const tropEl = document.getElementById('lab_trop_r');
+    tropEl.innerHTML = trop > 0.04
+      ? `<span style="color:#ef5350;font-weight:700">⬆ Elevated — ACS?</span>`
+      : `<span style="color:#66bb6a;font-weight:700">✓ Normal</span>`;
+  }
+}
+
+function saveLabValues() {
+  const g = id => { const v = parseFloat(document.getElementById(id)?.value); return isNaN(v) ? null : v; };
+  const fields = [
+    ['lab_pH','pH'],['lab_pco2','PaCO₂'],['lab_po2','PaO₂'],
+    ['lab_hco3','HCO₃'],['lab_be','BE'],['lab_lac','Lactate'],
+    ['lab_k','K⁺'],['lab_na','Na⁺'],['lab_ca','iCa'],
+    ['lab_hb','Hb'],['lab_trop','Troponin'],['lab_mg','Mg²⁺']
+  ];
+  const parts = fields.map(([id,lbl]) => { const v=g(id); return v!==null?lbl+' '+v:null; }).filter(Boolean);
+  if(!parts.length) { toast('กรอก Lab ก่อนอย่างน้อย 1 ค่า'); return; }
+
+  S.labValues = {};
+  fields.forEach(([id,lbl]) => { const v=g(id); if(v!==null) S.labValues[id]=v; });
+
+  addTimeline('🧪 Lab: '+parts.join(' | '), 'drug');
+
+  // อัพเดต badge และ status ใน header
+  const badge = document.getElementById('labSentBadge');
+  const status = document.getElementById('labStatusSummary');
+  if(badge) badge.style.display = '';
+  if(status) status.textContent = parts.length+' ค่า — บันทึกแล้ว';
+
+  // ปิด dropdown หลังบันทึก
+  const body = document.getElementById('labBody');
+  const chevron = document.getElementById('labChevron');
+  if(body) body.style.display = 'none';
+  if(chevron) { chevron.style.transform = ''; chevron.textContent = '▾'; }
+
+  toast('✅ บันทึก Lab แล้ว — '+parts.length+' ค่า','green');
+}
+
+function analyzeLabCause() {
+  const g = id => { const v = parseFloat(document.getElementById(id)?.value); return isNaN(v) ? null : v; };
+  const pH   = g('lab_pH');
+  const pco2 = g('lab_pco2');
+  const hco3 = g('lab_hco3');
+  const be   = g('lab_be');
+  const lac  = g('lab_lac');
+  const k    = g('lab_k');
+  const ca   = g('lab_ca');
+  const hb   = g('lab_hb');
+  const trop = g('lab_trop');
+  const mg   = g('lab_mg');
+  const po2  = g('lab_po2');
+
+  // ดึง DTX จาก input ด้วย
+  const dtx  = parseFloat(document.getElementById('dtxValue')?.value) || null;
+
+  const causes = [];
+
+  // ── Hypovolemia ──
+  if(hb !== null && hb < 8) causes.push({
+    h:'H', name:'Hypovolemia / Hemorrhage',
+    evidence:`Hb ${hb} g/dL (ต่ำมาก)`,
+    action:'พิจารณา pRBC, หาแหล่งเลือดออก'
+  });
+
+  // ── Hypoxia ──
+  if(po2 !== null && po2 < 60) causes.push({
+    h:'H', name:'Hypoxia',
+    evidence:`PaO₂ ${po2} mmHg (< 60)`,
+    action:'เพิ่ม FiO₂, ตรวจ ETT position, chest X-ray'
+  });
+
+  // ── H+ Acidosis ──
+  if(pH !== null && pH < 7.1) {
+    const isResp = pco2 !== null && pco2 > 50;
+    const isMet  = hco3 !== null && hco3 < 18;
+    causes.push({
+      h:'H', name:'H⁺ Acidosis'+(isResp?' (Respiratory)':isMet?' (Metabolic)':''),
+      evidence:`pH ${pH}${pco2?' | PaCO₂ '+pco2:''}${hco3?' | HCO₃ '+hco3:''}${be?' | BE '+be:''}`,
+      action: isResp
+        ? 'ตรวจท่อ + เพิ่ม RR / TV — ระวัง airway obstruction'
+        : 'NaHCO₃ 1mEq/kg IV ถ้า pH <7.1, แก้ underlying cause'
+    });
+  }
+
+  // ── Hypo/Hyperkalemia ──
+  if(k !== null) {
+    if(k > 6.0) causes.push({
+      h:'H', name:'Hyperkalemia',
+      evidence:`K⁺ ${k} mEq/L (> 6.0)`,
+      action:'Calcium Chloride 1g IV, NaHCO₃, D50+Insulin, Kayexalate'
+    });
+    else if(k < 2.5) causes.push({
+      h:'H', name:'Hypokalemia (severe)',
+      evidence:`K⁺ ${k} mEq/L (< 2.5)`,
+      action:'KCl IV drip อย่างช้า — monitor EKG'
+    });
+  }
+
+  // ── Hypothermia ──
+  // (ไม่มีตัวแปร temp ใน lab panel — ใช้ข้อมูลเตือน)
+
+  // ── Hypocalcemia ──
+  if(ca !== null && ca < 1.0) causes.push({
+    h:'H', name:'Hypocalcemia',
+    evidence:`iCa ${ca} mmol/L (< 1.0)`,
+    action:'Calcium Chloride 1g IV (10mL of 10% CaCl₂) slow push'
+  });
+
+  // ── Hypomagnesemia ──
+  if(mg !== null && mg < 1.2) causes.push({
+    h:'H', name:'Hypomagnesemia',
+    evidence:`Mg²⁺ ${mg} mEq/L (< 1.2)`,
+    action:'MgSO₄ 2g IV ใน 10 นาที — พิจารณาในTorsades de Pointes'
+  });
+
+  // ── Hypoglycemia ──
+  if(dtx !== null && dtx < 60) causes.push({
+    h:'H', name:'Hypoglycemia',
+    evidence:`DTX ${dtx} mg/dL (< 60)`,
+    action:'D50W 50mL IV bolus ทันที'
+  });
+
+  // ── Lactatemia → Hypoperfusion / Toxin ──
+  if(lac !== null && lac > 4) causes.push({
+    h:'T', name:'Toxin / Hypoperfusion (Lactic acidosis)',
+    evidence:`Lactate ${lac} mmol/L (> 4)`,
+    action:'ประเมิน CO poisoning, Cyanide, ยากลุ่ม Biguanide, Sepsis'
+  });
+
+  // ── Troponin → Thrombosis MI ──
+  if(trop !== null && trop > 0.04) causes.push({
+    h:'T', name:'Thrombosis — ACS/STEMI',
+    evidence:`Troponin ${trop} (Elevated)`,
+    action:'12-lead EKG, activate Cath Lab ถ้า STEMI, พิจารณา tPA ถ้าไม่มี PCI'
+  });
+
+  // ── Metabolic acidosis + high BE → Toxin ──
+  if(be !== null && be < -10 && (pH === null || pH < 7.2)) causes.push({
+    h:'T', name:'Toxin / Severe Metabolic Acidosis',
+    evidence:`BE ${be} mEq/L${pH?' | pH '+pH:''}`,
+    action:'ตรวจ anion gap, สงสัย TCA overdose, Metformin, Salicylate, CO'
+  });
+
+  // render
+  const resultBox = document.getElementById('labCauseResult');
+  const contentEl = document.getElementById('labCauseContent');
+  resultBox.style.display = 'block';
+  resultBox.scrollIntoView({behavior:'smooth', block:'nearest'});
+
+  if(!causes.length) {
+    contentEl.innerHTML = '<span style="color:#66bb6a">✅ ค่า Lab ที่กรอกอยู่ในเกณฑ์ปกติ — ไม่พบสาเหตุชัดเจนจาก Lab</span>';
+    return;
+  }
+
+  contentEl.innerHTML = causes.map(c => {
+    const isH = c.h === 'H';
+    const bg  = isH ? 'rgba(217,48,37,.12)' : 'rgba(123,47,190,.12)';
+    const bc  = isH ? 'rgba(217,48,37,.4)'  : 'rgba(123,47,190,.4)';
+    const col = isH ? '#ef9a9a' : '#ce93d8';
+    return `<div style="background:${bg};border:1px solid ${bc};border-radius:7px;padding:9px 11px;margin-bottom:7px">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:4px">
+        <span style="background:${bc};color:${col};font-size:10px;font-weight:800;padding:1px 7px;border-radius:4px">${c.h}</span>
+        <span style="font-weight:800;color:var(--text);font-size:13px">${c.name}</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px">📊 ${c.evidence}</div>
+      <div style="font-size:12px;color:${col}">💊 ${c.action}</div>
+    </div>`;
+  }).join('');
+
+  // auto-highlight H&T buttons ที่ตรงกัน
+  causes.forEach(c => {
+    document.querySelectorAll('.ht-btn').forEach(btn => {
+      const cause = btn.dataset.cause || '';
+      if(c.name.toLowerCase().includes(cause.toLowerCase()) || cause.toLowerCase().includes(c.name.split(' ')[0].toLowerCase())) {
+        btn.classList.add('selected');
+      }
+    });
+  });
+  updateHTSummary();
+  toast('🔍 วิเคราะห์สาเหตุเสร็จ — '+causes.length+' รายการ', 'green');
 }
 
 function logECPRAndAdvance(action){
