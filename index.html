@@ -261,6 +261,15 @@ body.light .sum-tl-item{border-bottom-color:rgba(0,0,0,.07)}
 .divider{border:none;border-top:1px solid var(--border);margin:12px 0}
 .wrap{max-width:600px;margin:0 auto;padding:12px 14px}
 
+/* ── PIN MODAL ── */
+.pin-key{padding:15px;border-radius:10px;border:1px solid var(--border);
+  background:rgba(255,255,255,.06);color:var(--text);font-size:20px;font-weight:700;
+  cursor:pointer;font-family:'Sarabun',sans-serif;transition:.1s;
+  -webkit-tap-highlight-color:transparent}
+.pin-key:active{background:rgba(26,115,232,.35);border-color:var(--primary);transform:scale(.92)}
+.pin-del{background:transparent;color:var(--muted);font-size:16px}
+@keyframes pin-shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+
 /* ── TOAST ── */
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);
   background:#323232;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;
@@ -1024,6 +1033,47 @@ body.light .vs-input{background:#fff;border-color:var(--border);color:var(--text
       <button class="btn" style="background:#0277bd;color:#fff;flex:1" onclick="exportImage()">🖼 PNG</button>
     </div>
     <button class="btn btn-danger btn-full" onclick="newCase()" style="margin-top:4px">🔄 เริ่มเคสใหม่</button>
+    <button onclick="openSheetPIN()" style="width:100%;margin-top:8px;padding:11px;border-radius:10px;
+      border:1px solid rgba(26,115,232,.45);background:rgba(26,115,232,.1);color:#82b1ff;
+      font-family:'Sarabun',sans-serif;font-size:14px;font-weight:700;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;gap:8px">
+      📊 ดูบันทึกข้อมูลใน Google Sheet
+    </button>
+  </div>
+</div>
+
+<!-- PIN MODAL -->
+<div id="pinModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);
+  z-index:700;align-items:center;justify-content:center;padding:24px">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:18px;
+    padding:30px 24px;max-width:300px;width:100%;text-align:center">
+    <div style="font-size:36px;margin-bottom:6px">🔒</div>
+    <div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:4px">ใส่รหัสผ่าน</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:22px">เพื่อเข้าดูข้อมูลใน Google Sheet</div>
+
+    <!-- dots -->
+    <div style="display:flex;justify-content:center;gap:14px;margin-bottom:22px" id="pinDots">
+      <div id="pd0" style="width:14px;height:14px;border-radius:50%;border:2px solid var(--border);background:transparent;transition:.15s"></div>
+      <div id="pd1" style="width:14px;height:14px;border-radius:50%;border:2px solid var(--border);background:transparent;transition:.15s"></div>
+      <div id="pd2" style="width:14px;height:14px;border-radius:50%;border:2px solid var(--border);background:transparent;transition:.15s"></div>
+    </div>
+
+    <!-- numpad -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:10px">
+      <button class="pin-key" onclick="pinKey('1')">1</button>
+      <button class="pin-key" onclick="pinKey('2')">2</button>
+      <button class="pin-key" onclick="pinKey('3')">3</button>
+      <button class="pin-key" onclick="pinKey('4')">4</button>
+      <button class="pin-key" onclick="pinKey('5')">5</button>
+      <button class="pin-key" onclick="pinKey('6')">6</button>
+      <button class="pin-key" onclick="pinKey('7')">7</button>
+      <button class="pin-key" onclick="pinKey('8')">8</button>
+      <button class="pin-key" onclick="pinKey('9')">9</button>
+      <button class="pin-key pin-del" onclick="pinDel()">⌫</button>
+      <button class="pin-key" onclick="pinKey('0')">0</button>
+      <button class="pin-key pin-del" onclick="closePINModal()">✕</button>
+    </div>
+    <div id="pinErr" style="font-size:12px;color:var(--danger);font-weight:700;min-height:18px"></div>
   </div>
 </div>
 
@@ -1524,23 +1574,22 @@ function _renderAlgoHTML(rhythm, algo) {
       html += step.text;
       if (step.drug) html += '<div class="step-drug">'+step.drug+'</div>';
 
-      // ── ปุ่มตาม action — disable ถ้าเป็น future step ──
+      // ── ปุ่มตาม action — style dim ถ้าเป็น future step (ไม่ใช้ disabled attr) ──
       const a = step.action;
-      const d = isFuture ? ' disabled' : '';
-      const ds = isFuture ? 'opacity:.3;pointer-events:none;' : '';
+      const ds = isFuture ? 'opacity:.3;pointer-events:none;cursor:default;' : '';
 
-      if (a==='cpr_start')   html += `<button class="step-action-btn btn-log-cpr" style="background:#546e7a;${ds}" onclick="continueCPRAndAdvance()"${d}>✓ CPR กำลังทำอยู่ → ถัดไป</button>`;
-      else if (a==='cpr')    html += `<button class="step-action-btn btn-log-cpr" style="${ds}" onclick="cprDoneEKGCheck()"${d}>⏱ ครบ 2 นาที → เช็ค EKG</button>`;
-      else if (a==='shock')  html += `<button class="step-action-btn btn-log-shock" style="${ds}" onclick="logShockAndAdvance()"${d}>✓ Shock แล้ว → CPR ต่อ</button>`;
-      else if (a==='epi')    html += `<button class="step-action-btn btn-log-drug" style="${ds}" onclick="logEpiAndAdvance()"${d}>✓ ให้ Epi แล้ว → ถัดไป</button>`;
-      else if (a==='amio')   html += `<button class="step-action-btn btn-log-drug" style="${ds}" onclick="logAmioAndAdvance()"${d}>✓ ให้ Amio แล้ว</button>`;
-      else if (a==='intubate') html += `<button class="step-action-btn" style="background:#00838f;color:#fff;${ds}" onclick="logIntubateAndAdvance()"${d}>🫁 ใส่ท่อสำเร็จ</button>`;
-      else if (a==='drug')   html += `<button class="step-action-btn btn-log-drug" style="${ds}" onclick="logDrugAndAdvance('${(step.drug||'Drug').replace(/[\'\"]/g,'')}')"${d}>✓ ให้ยาแล้ว</button>`;
+      if (a==='cpr_start')   html += `<button class="step-action-btn btn-log-cpr" style="background:#546e7a;${ds}" onclick="continueCPRAndAdvance()">✓ CPR กำลังทำอยู่ → ถัดไป</button>`;
+      else if (a==='cpr')    html += `<button class="step-action-btn btn-log-cpr" style="${ds}" onclick="cprDoneEKGCheck()">⏱ ครบ 2 นาที → เช็ค EKG</button>`;
+      else if (a==='shock')  html += `<button class="step-action-btn btn-log-shock" style="${ds}" onclick="logShockAndAdvance()">✓ Shock แล้ว → CPR ต่อ</button>`;
+      else if (a==='epi')    html += `<button class="step-action-btn btn-log-drug" style="${ds}" onclick="logEpiAndAdvance()">✓ ให้ Epi แล้ว → ถัดไป</button>`;
+      else if (a==='amio')   html += `<button class="step-action-btn btn-log-drug" style="${ds}" onclick="logAmioAndAdvance()">✓ ให้ Amio แล้ว</button>`;
+      else if (a==='intubate') html += `<button class="step-action-btn" style="background:#00838f;color:#fff;${ds}" onclick="logIntubateAndAdvance()">🫁 ใส่ท่อสำเร็จ</button>`;
+      else if (a==='drug')   html += `<button class="step-action-btn btn-log-drug" style="${ds}" onclick="logDrugAndAdvance('${(step.drug||'Drug').replace(/[\'\"]/g,'')}')">${'✓ ให้ยาแล้ว'}</button>`;
       else if (a==='ecpr')   html += `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
-        <button class="step-action-btn" style="background:#1565c0;color:#fff;${ds}" onclick="logECPRAndAdvance('sent')"${d}>✅ ส่ง ECPR แล้ว</button>
-        <button class="step-action-btn" style="background:#37474f;color:#b0bec5;${ds}" onclick="logECPRAndAdvance('skip')"${d}>⏭ ไม่มี ECPR — ข้าม</button>
+        <button class="step-action-btn" style="background:#1565c0;color:#fff;${ds}" onclick="logECPRAndAdvance('sent')">✅ ส่ง ECPR แล้ว</button>
+        <button class="step-action-btn" style="background:#37474f;color:#b0bec5;${ds}" onclick="logECPRAndAdvance('skip')">⏭ ไม่มี ECPR — ข้าม</button>
       </div>`;
-      else                   html += `<button class="step-action-btn btn-log-cpr" style="background:#546e7a;${ds}" onclick="advanceStep()"${d}>✓ ทำแล้ว → ถัดไป</button>`;
+      else                   html += `<button class="step-action-btn btn-log-cpr" style="background:#546e7a;${ds}" onclick="advanceStep()">✓ ทำแล้ว → ถัดไป</button>`;
     }
     html += '</div></div>';
   });
@@ -1586,7 +1635,7 @@ function advanceStep() {
   }
 
   if (S.currentStepIdx < total) {
-    // highlight next — enable ปุ่มทั้งหมดของ step นี้
+    // highlight next — enable ปุ่มทั้งหมดของ step นี้ให้ใช้งานได้
     const next = document.getElementById('step_'+S.currentStepIdx);
     if (next) {
       next.classList.remove('done-step');
@@ -1594,10 +1643,13 @@ function advanceStep() {
       const num = next.querySelector('.step-num'); if(num) num.className='step-num next';
       const cd = next.querySelector('.step-content');
       if(cd && !cd.querySelector('.next-badge')) cd.insertAdjacentHTML('afterbegin','<div class="next-badge">▶ ถัดไป</div> ');
+      // clear disabled state ทั้งหมดให้ครบ
       next.querySelectorAll('button').forEach(b=>{
-        b.disabled=false;
-        b.style.opacity='';
-        b.style.pointerEvents='';
+        b.disabled = false;
+        b.removeAttribute('disabled');
+        b.style.opacity = '';
+        b.style.pointerEvents = '';
+        b.style.cursor = '';
       });
       next.scrollIntoView({behavior:'smooth',block:'center'});
     }
@@ -1830,10 +1882,13 @@ function showEKGCheck(isInitial) {
     ? '🚨 CODE BLUE — EKG เริ่มต้นเป็นอะไร?'
     : '⏱ ครบ 2 นาที — EKG ตอนนี้เป็นอะไร?';
 
+  // ครั้งแรก (initial) ไม่มี ROSC — เพิ่งเริ่ม CPR ยังไม่มีทางเป็น ROSC
+  const displayChoices = isInitial ? choices.filter(c => c.rhythm !== 'ROSC') : choices;
+
   let html = `<div class="ekg-check-box">
     <div class="ekg-check-title">${titleTxt}</div>`;
 
-  choices.forEach(c => {
+  displayChoices.forEach(c => {
     html += `<button class="ekg-choice-btn" style="background:${c.color};border-color:${c.border}" onclick="handleEKGChoice('${c.rhythm}')">
       ${c.wave}
       <div class="ekg-choice-inner" style="color:#fff">
@@ -1861,6 +1916,19 @@ function showEKGCheck(isInitial) {
       onchange="ekgcheck_openWithFile(this)">
   </div>`;
 
+  // ปุ่ม Learning เฉพาะ initial
+  if (isInitial) {
+    html += `<div style="margin-top:8px">
+      <button onclick="startLearning()" style="display:flex;align-items:center;justify-content:center;gap:8px;
+        width:100%;padding:11px;border-radius:10px;border:2px dashed rgba(255,213,0,.35);
+        background:rgba(255,213,0,.06);color:#ffd54f;font-family:Sarabun,sans-serif;
+        font-size:14px;font-weight:700;cursor:pointer;transition:.15s"
+        onmouseover="this.style.background='rgba(255,213,0,.12)'" onmouseout="this.style.background='rgba(255,213,0,.06)'">
+        🎓 Learning Mode — ฝึกซ้อม ไม่ต้องเลือก EKG
+      </button>
+    </div>`;
+  }
+
   if (!isInitial) {
     html += `<button onclick="closeEKGCheck()" style="width:100%;padding:9px;border:none;background:transparent;color:var(--muted);cursor:pointer;font-family:Sarabun,sans-serif;font-size:13px;margin-top:4px">ยกเลิก</button>`;
   }
@@ -1870,7 +1938,22 @@ function showEKGCheck(isInitial) {
 }
 function closeEKGCheck() { const el=document.getElementById('ekgCheckOverlay'); if(el) el.remove(); }
 
-// เปิด EKG AI Modal พร้อมรูปที่อัพโหลดจาก EKG Check overlay
+// ── Learning Mode — ข้าม EKG check เข้าแอปเลย ──
+function startLearning() {
+  closeEKGCheck();
+  addTimeline('🎓 Learning Mode — ฝึกซ้อม', 'system');
+  const infoBar = document.getElementById('patientInfoBar');
+  if (infoBar && !infoBar.textContent.trim()) {
+    infoBar.innerHTML = '🎓 <b style="color:#ffd54f">Learning Mode</b>';
+  }
+  const phaseLabel = document.getElementById('currentPhaseLabel');
+  if (phaseLabel) phaseLabel.textContent = '🎓 เลือก Rhythm เพื่อเริ่ม Algorithm';
+  setTimeout(() => {
+    const rhythmCard = document.getElementById('rhythmCard');
+    if (rhythmCard) rhythmCard.scrollIntoView({behavior:'smooth', block:'center'});
+  }, 100);
+  toast('🎓 Learning Mode — เลือก Rhythm เพื่อเริ่ม', 'green');
+}
 function ekgcheck_openWithFile(input) {
   const file = input.files[0];
   if (!file) return;
@@ -2291,11 +2374,19 @@ function confirmIntubate(type){
   else{S.drugs.push({time:ts,realTime:nowStr(),drug:'Intubation (ETT)',dose:'ETT ใหม่',route:'Airway'});addTimeline('🫁 ใส่ ETT สำเร็จ','drug');toast('🫁 Intubation บันทึก','green');}
   updateAirwayStatus();
   setTimeout(()=>speak('ใส่ท่อสำเร็จ กดซีพีอาร์ต่อเนื่อง ช่วยหายใจทุก 6วินาที',false),400);
-  if (S.currentRhythm) {
-    const algo = ALGO[getAlgoKey(S.currentRhythm)];
-    if (algo && algo.cycles) { advanceStep(); _renderAlgoHTMLUpdate(); }
-    else advanceStep();
-  } else advanceStep();
+  // อัพเดต airway note banner แล้ว advance — ไม่ re-render ทั้งหมดเพื่อไม่รีเซ็ต step state
+  const box = document.getElementById('algoContent');
+  if (box) {
+    const airwayDiv = box.querySelector('[id^="step_"] ~ div, div:first-child');
+    // อัพเดตเฉพาะ banner text ด้านบน
+    const banners = box.querySelectorAll('div[style*="rgba(0,131,143"]');
+    banners.forEach(b => b.remove());
+    const newBanner = document.createElement('div');
+    newBanner.style.cssText = 'background:rgba(0,131,143,.12);border:1px solid rgba(0,131,143,.35);border-radius:7px;padding:7px 10px;margin-bottom:8px;font-size:12px;color:#80cbc4';
+    newBanner.innerHTML = '🫁 <b>มีท่อช่วยหายใจแล้ว</b> — CPR กดต่อเนื่อง | ช่วยหายใจ 10 ครั้ง/นาที';
+    box.insertBefore(newBanner, box.firstChild.nextSibling?.nextSibling || box.firstChild);
+  }
+  advanceStep();
 }
 // อัพเดต airway note banner เท่านั้น (ไม่ reset step)
 function _renderAlgoHTMLUpdate() {
@@ -2645,6 +2736,69 @@ function exportImage(){
   toast('🖼 กำลังสร้างรูป...');
   const iframe=document.createElement('iframe');iframe.style.cssText='position:fixed;left:-9999px;top:0;width:800px;height:1200px;border:none';document.body.appendChild(iframe);iframe.contentDocument.write(buildSummaryHTML());iframe.contentDocument.close();
   setTimeout(()=>{html2canvas(iframe.contentDocument.body,{scale:2,useCORS:true,backgroundColor:'#ffffff',width:800,windowWidth:800}).then(canvas=>{document.body.removeChild(iframe);const link=document.createElement('a');const date=new Date().toISOString().slice(0,10);link.download='ACLS_'+date+'.png';link.href=canvas.toDataURL('image/png');link.click();toast('✅ บันทึกรูปสำเร็จ!','green');}).catch(err=>{document.body.removeChild(iframe);toast('❌ Export ไม่สำเร็จ: '+err.message,'red');});},600);
+}
+
+// ══════════════════════════════════════════
+//  PIN MODAL — Google Sheet (PIN: 952)
+// ══════════════════════════════════════════
+const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1feUBfVmLMgi6SCWPg3VAWH95ONysY1bUDom5cCllqwE/edit?usp=sharing';
+const SHEET_PIN = '952';
+let _pin = '';
+
+function openSheetPIN() {
+  _pin = '';
+  _pinRender();
+  document.getElementById('pinErr').textContent = '';
+  const m = document.getElementById('pinModal');
+  m.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+function closePINModal() {
+  document.getElementById('pinModal').style.display = 'none';
+  document.body.style.overflow = '';
+  _pin = '';
+  _pinRender();
+  document.getElementById('pinErr').textContent = '';
+}
+function pinKey(d) {
+  if (_pin.length >= SHEET_PIN.length) return;
+  _pin += d;
+  _pinRender();
+  if (_pin.length === SHEET_PIN.length) setTimeout(_pinCheck, 130);
+}
+function pinDel() {
+  _pin = _pin.slice(0, -1);
+  _pinRender();
+  document.getElementById('pinErr').textContent = '';
+}
+function _pinRender() {
+  for (let i = 0; i < SHEET_PIN.length; i++) {
+    const d = document.getElementById('pd' + i);
+    if (!d) continue;
+    d.style.background = i < _pin.length ? 'var(--primary)' : 'transparent';
+    d.style.borderColor = i < _pin.length ? 'var(--primary)' : 'var(--border)';
+    d.style.animation = '';
+  }
+}
+function _pinCheck() {
+  if (_pin === SHEET_PIN) {
+    closePINModal();
+    window.open(SHEET_URL, '_blank');
+    toast('✅ เปิด Google Sheet แล้ว', 'green');
+  } else {
+    // shake + red
+    for (let i = 0; i < SHEET_PIN.length; i++) {
+      const d = document.getElementById('pd' + i);
+      if (d) {
+        d.style.background = 'var(--danger)';
+        d.style.borderColor = 'var(--danger)';
+        d.style.animation = 'pin-shake .4s ease';
+      }
+    }
+    document.getElementById('pinErr').textContent = '❌ รหัสไม่ถูกต้อง';
+    _pin = '';
+    setTimeout(_pinRender, 700);
+  }
 }
 
 function showScreen(id){document.querySelectorAll('.screen').forEach(s=>{s.classList.remove('active');s.style.display='none';});const el=document.getElementById(id);el.classList.add('active');el.style.display=id==='startScreen'?'flex':'block';window.scrollTo(0,0);}
