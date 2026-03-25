@@ -599,94 +599,120 @@ body.light .vs-input{background:#fff;border-color:var(--border);color:var(--text
         <button class="btn btn-ghost" style="font-size:12px;padding:7px 10px" onclick="undoStep()">↩</button>
       </div>
 
-      <!-- DRUG PANEL -->
-      <div style="background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.8px">💊 บันทึกยา</div>
-          <div style="display:flex;align-items:center;gap:5px">
-            <span style="font-size:11px;color:var(--muted)">👶 Peds</span>
-            <button id="pedsToggleBtn" onclick="togglePeds()"
-              style="background:rgba(255,255,255,.08);border:1px solid var(--border);border-radius:16px;
-              padding:2px 10px;cursor:pointer;font-size:11px;font-weight:700;color:var(--muted)">OFF</button>
+      <!-- ═══ DRUG PANEL — Collapsible ═══ -->
+      <div style="border:1px solid var(--border);border-radius:10px;margin-bottom:8px;overflow:hidden">
+        <button onclick="togglePanel('drugPanel','drugChevron')"
+          style="width:100%;padding:11px 14px;background:rgba(255,255,255,.04);border:none;cursor:pointer;
+          display:flex;align-items:center;justify-content:space-between;font-family:'Sarabun',sans-serif">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:14px">💊</span>
+            <span style="font-size:13px;font-weight:700;color:var(--text)">บันทึกยา</span>
+            <span id="drugSummaryBadge" style="font-size:10px;color:var(--muted)">—</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
             <span id="pedsWeightLabel" style="font-size:11px;color:#80cbc4;display:none"></span>
+            <span id="drugChevron" style="color:var(--muted);font-size:14px;transition:transform .2s">▾</span>
+          </div>
+        </button>
+        <div id="drugPanel" style="display:none;padding:0 12px 12px;border-top:1px solid var(--border)">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0">
+            <div style="display:flex;align-items:center;gap:5px">
+              <span style="font-size:11px;color:var(--muted)">👶 Peds</span>
+              <button id="pedsToggleBtn" onclick="togglePeds()"
+                style="background:rgba(255,255,255,.08);border:1px solid var(--border);border-radius:16px;
+                padding:2px 10px;cursor:pointer;font-size:11px;font-weight:700;color:var(--muted)">OFF</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:5px">
+              <span style="font-size:11px;color:var(--muted)">จำนวน:</span>
+              <input id="drugQty" type="number" value="1" min="1" max="20"
+                style="width:46px;text-align:center;padding:4px;font-size:13px;font-weight:700;
+                background:rgba(255,255,255,.1);border:1px solid var(--border);border-radius:5px;color:var(--text)">
+              <input id="drugDoseOverride" type="text" placeholder="dose override"
+                style="width:90px;padding:4px 7px;font-size:12px;
+                background:rgba(255,255,255,.07);border:1px solid var(--border);border-radius:5px;color:var(--text)">
+            </div>
+          </div>
+          <div id="drugGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:8px"></div>
+          <div style="display:flex;gap:6px">
+            <select id="otherDrugSelect" style="flex:1;font-size:13px;padding:6px 8px;
+              background:rgba(255,255,255,.07);border:1px solid var(--border);border-radius:7px;color:var(--text)">
+              <option value="">เลือกยาอื่น...</option>
+              <option>Dopamine drip</option><option>Norepinephrine drip</option>
+              <option>Vasopressin 40U</option><option>Lidocaine 1.5mg/kg</option>
+              <option>Heparin 60U/kg</option><option>tPA Alteplase 50mg</option>
+              <option>Morphine 2-4mg</option><option>Midazolam 2mg</option>
+              <option>Dextrose 50% 50mL</option><option>KCl IV drip</option>
+            </select>
+            <button class="btn btn-ghost" style="font-size:12px;padding:6px 10px;flex-shrink:0" onclick="logSelectDrug()">+ บันทึก</button>
           </div>
         </div>
-        <div style="display:flex;gap:5px;align-items:center;margin-bottom:8px;background:rgba(255,255,255,.04);border-radius:7px;padding:7px">
-          <span style="font-size:11px;color:var(--muted);white-space:nowrap">จำนวน:</span>
-          <input id="drugQty" type="number" value="1" min="1" max="20"
-            style="width:50px;text-align:center;padding:4px;font-size:14px;font-weight:700;
-            background:rgba(255,255,255,.1);border:1px solid var(--border);border-radius:5px;color:var(--text)">
-          <span style="font-size:11px;color:var(--muted)">ครั้ง | dose:</span>
-          <input id="drugDoseOverride" type="text" placeholder="เช่น 1mg"
-            style="flex:1;padding:4px 7px;font-size:12px;
-            background:rgba(255,255,255,.07);border:1px solid var(--border);border-radius:5px;color:var(--text)">
-        </div>
-        <div id="drugGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:8px"></div>
-        <div style="display:flex;gap:6px">
-          <select id="otherDrugSelect" style="flex:1;font-size:13px;padding:6px 8px;
-            background:rgba(255,255,255,.07);border:1px solid var(--border);border-radius:7px;color:var(--text)">
-            <option value="">เลือกยาอื่น...</option>
-            <option>Dopamine drip</option><option>Norepinephrine drip</option>
-            <option>Vasopressin 40U</option><option>Lidocaine 1.5mg/kg</option>
-            <option>Heparin 60U/kg</option><option>tPA Alteplase 50mg</option>
-            <option>Morphine 2-4mg</option><option>Midazolam 2mg</option>
-            <option>Dextrose 50% 50mL</option><option>KCl IV drip</option>
-          </select>
-          <button class="btn btn-ghost" style="font-size:12px;padding:6px 10px;flex-shrink:0" onclick="logSelectDrug()">+ บันทึก</button>
-        </div>
       </div>
 
-      <!-- DTX -->
-      <div style="border:1px solid rgba(0,131,143,.4);border-radius:10px;padding:11px;margin-bottom:10px">
-        <div style="font-size:11px;color:#80cbc4;font-weight:700;margin-bottom:7px">🩸 DTX</div>
-        <div style="display:flex;gap:7px;align-items:center">
-          <input id="dtxValue" type="number" placeholder="mg/dL" step="1" min="0"
-            style="flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(0,131,143,.5);
-            border-radius:7px;padding:8px 10px;color:var(--text);font-size:15px;font-weight:700">
-          <button class="btn" style="background:#00838f;color:#fff;flex-shrink:0;padding:8px 14px" onclick="logDTX()">บันทึก</button>
-        </div>
-        <div id="dtxInterpret" style="margin-top:5px;font-size:12px;color:var(--muted)">กรอกค่า DTX เพื่อดูผล</div>
-      </div>
+      <!-- ═══ DTX + IV FLUID — Collapsible ═══ -->
+      <div style="border:1px solid rgba(0,131,143,.4);border-radius:10px;margin-bottom:8px;overflow:hidden">
+        <button onclick="togglePanel('fluidDtxPanel','fluidChevron')"
+          style="width:100%;padding:11px 14px;background:rgba(0,131,143,.06);border:none;cursor:pointer;
+          display:flex;align-items:center;justify-content:space-between;font-family:'Sarabun',sans-serif">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:14px">💧</span>
+            <span style="font-size:13px;font-weight:700;color:#4fc3f7">DTX + สารน้ำ IV</span>
+            <span id="fluidSummaryBadge" style="font-size:10px;color:var(--muted)">—</span>
+          </div>
+          <span id="fluidChevron" style="color:#4fc3f7;font-size:14px;transition:transform .2s">▾</span>
+        </button>
+        <div id="fluidDtxPanel" style="display:none;padding:0 12px 12px;border-top:1px solid rgba(0,131,143,.3)">
 
-      <!-- IV FLUID PANEL -->
-      <div style="background:rgba(3,169,244,.07);border:1px solid rgba(3,169,244,.35);border-radius:10px;padding:12px;margin-bottom:10px">
-        <div style="font-size:11px;color:#4fc3f7;font-weight:700;margin-bottom:9px;letter-spacing:.8px">💧 สารน้ำ IV ระหว่าง Resuscitation</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:8px">
-          <button class="drug-quick-btn" onclick="logFluid('NSS 0.9%','500 mL','IV bolus')"
-            style="background:rgba(3,169,244,.15);border:1px solid rgba(3,169,244,.4);color:#4fc3f7;text-align:left;padding:9px 10px">
-            💧 NSS 0.9%<span style="display:block;font-size:10px;font-weight:400;margin-top:1px">Normal Saline</span>
-          </button>
-          <button class="drug-quick-btn" onclick="logFluid('LRS (Lactated Ringer)','500 mL','IV bolus')"
-            style="background:rgba(3,169,244,.12);border:1px solid rgba(3,169,244,.35);color:#81d4fa;text-align:left;padding:9px 10px">
-            💧 LRS / Ringer<span style="display:block;font-size:10px;font-weight:400;margin-top:1px">Lactated Ringer's</span>
-          </button>
-          <button class="drug-quick-btn" onclick="logFluid('NSS 0.9%','1000 mL','IV rapid')"
-            style="background:rgba(3,169,244,.18);border:1px solid rgba(3,169,244,.45);color:#4fc3f7;text-align:left;padding:9px 10px">
-            💧 NSS 1000 mL<span style="display:block;font-size:10px;font-weight:400;margin-top:1px">Rapid bolus</span>
-          </button>
-          <button class="drug-quick-btn" onclick="logFluid('D5W','500 mL','IV')"
-            style="background:rgba(255,193,7,.1);border:1px solid rgba(255,193,7,.35);color:#fff176;text-align:left;padding:9px 10px">
-            🍬 D5W 500 mL<span style="display:block;font-size:10px;font-weight:400;margin-top:1px">5% Dextrose</span>
-          </button>
+          <!-- DTX -->
+          <div style="padding-top:10px;margin-bottom:10px">
+            <div style="font-size:10px;color:#80cbc4;font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">🩸 DTX</div>
+            <div style="display:flex;gap:7px;align-items:center">
+              <input id="dtxValue" type="number" placeholder="mg/dL" step="1" min="0"
+                style="flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(0,131,143,.5);
+                border-radius:7px;padding:8px 10px;color:var(--text);font-size:15px;font-weight:700">
+              <button class="btn" style="background:#00838f;color:#fff;flex-shrink:0;padding:8px 14px" onclick="logDTX()">บันทึก</button>
+            </div>
+            <div id="dtxInterpret" style="margin-top:5px;font-size:12px;color:var(--muted)">กรอกค่า DTX เพื่อดูผล</div>
+          </div>
+
+          <!-- IV Fluid -->
+          <div style="border-top:1px solid rgba(3,169,244,.2);padding-top:10px">
+            <div style="font-size:10px;color:#4fc3f7;font-weight:700;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">💧 สารน้ำ IV</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:8px">
+              <button class="drug-quick-btn" onclick="logFluid('NSS 0.9%','500 mL','IV bolus')"
+                style="background:rgba(3,169,244,.15);border:1px solid rgba(3,169,244,.4);color:#4fc3f7;text-align:left;padding:9px 10px">
+                💧 NSS 0.9%<span style="display:block;font-size:10px;font-weight:400;margin-top:1px">500 mL bolus</span>
+              </button>
+              <button class="drug-quick-btn" onclick="logFluid('LRS (Lactated Ringer)','500 mL','IV bolus')"
+                style="background:rgba(3,169,244,.12);border:1px solid rgba(3,169,244,.35);color:#81d4fa;text-align:left;padding:9px 10px">
+                💧 LRS / Ringer<span style="display:block;font-size:10px;font-weight:400;margin-top:1px">500 mL bolus</span>
+              </button>
+              <button class="drug-quick-btn" onclick="logFluid('NSS 0.9%','1000 mL','IV rapid')"
+                style="background:rgba(3,169,244,.18);border:1px solid rgba(3,169,244,.45);color:#4fc3f7;text-align:left;padding:9px 10px">
+                💧 NSS 1000 mL<span style="display:block;font-size:10px;font-weight:400;margin-top:1px">Rapid bolus</span>
+              </button>
+              <button class="drug-quick-btn" onclick="logFluid('D5W','500 mL','IV')"
+                style="background:rgba(255,193,7,.1);border:1px solid rgba(255,193,7,.35);color:#fff176;text-align:left;padding:9px 10px">
+                🍬 D5W 500 mL<span style="display:block;font-size:10px;font-weight:400;margin-top:1px">5% Dextrose</span>
+              </button>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <select id="fluidTypeSelect" style="flex:2;font-size:12px;padding:6px 7px;
+                background:rgba(255,255,255,.07);border:1px solid var(--border);border-radius:6px;color:var(--text)">
+                <option value="">เลือกชนิดสารน้ำ...</option>
+                <option>NSS 0.9%</option><option>LRS (Lactated Ringer)</option>
+                <option>D5W</option><option>D5NSS</option><option>D5S/2</option>
+                <option>Plasma-Lyte</option><option>Colloid (Gelofusine)</option>
+                <option>Blood (pRBC)</option><option>FFP</option><option>Platelet</option>
+              </select>
+              <input id="fluidVolumeInput" type="number" placeholder="mL" min="0" step="50"
+                style="width:65px;text-align:center;padding:6px 5px;font-size:13px;font-weight:700;
+                background:rgba(255,255,255,.08);border:1px solid var(--border);border-radius:6px;color:var(--text)">
+              <button class="btn btn-ghost" style="font-size:12px;padding:6px 10px;flex-shrink:0" onclick="logCustomFluid()">+ บันทึก</button>
+            </div>
+            <div id="fluidHistory" style="margin-top:8px;font-size:11px;color:var(--muted);line-height:1.8"></div>
+            <div id="fluidTotal" style="font-size:12px;font-weight:700;color:#4fc3f7;margin-top:4px;display:none"></div>
+          </div>
         </div>
-        <div style="display:flex;gap:6px;align-items:center;background:rgba(255,255,255,.04);border-radius:8px;padding:7px">
-          <select id="fluidTypeSelect" style="flex:2;font-size:12px;padding:6px 7px;
-            background:rgba(255,255,255,.07);border:1px solid var(--border);border-radius:6px;color:var(--text)">
-            <option value="">เลือกชนิดสารน้ำ...</option>
-            <option>NSS 0.9%</option><option>LRS (Lactated Ringer)</option>
-            <option>D5W</option><option>D5NSS</option><option>D5S/2</option>
-            <option>Plasma-Lyte</option><option>Colloid (Gelofusine)</option>
-            <option>Blood (pRBC)</option><option>FFP</option><option>Platelet</option>
-          </select>
-          <input id="fluidVolumeInput" type="number" placeholder="mL" min="0" step="50"
-            style="width:70px;text-align:center;padding:6px 5px;font-size:13px;font-weight:700;
-            background:rgba(255,255,255,.08);border:1px solid var(--border);border-radius:6px;color:var(--text)">
-          <span style="font-size:11px;color:var(--muted);white-space:nowrap">mL</span>
-          <button class="btn btn-ghost" style="font-size:12px;padding:6px 10px;flex-shrink:0" onclick="logCustomFluid()">+ บันทึก</button>
-        </div>
-        <div id="fluidHistory" style="margin-top:8px;font-size:11px;color:var(--muted);line-height:1.8"></div>
-        <div id="fluidTotal" style="font-size:12px;font-weight:700;color:#4fc3f7;margin-top:4px;display:none"></div>
-        
       </div>
 
       <!-- BLOOD GAS & LAB PANEL — Collapsible -->
@@ -1002,7 +1028,7 @@ body.light .vs-input{background:#fff;border-color:var(--border);color:var(--text
     <hr class="divider">
     <div style="background:rgba(217,48,37,.07);border:1px solid rgba(217,48,37,.3);border-radius:10px;padding:12px;margin-bottom:12px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div style="font-size:13px;color:#ef9a9a;font-weight:700">🔍 Reversible Causes — 6H 6T</div>
+        <div style="font-size:13px;color:#ef9a9a;font-weight:700">🔍 Reversible Causes — 6H 5T</div>
         <span id="htSelectedCount" style="font-size:12px;color:#ef9a9a;font-weight:600">ยังไม่เลือก</span>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:8px">
@@ -1014,10 +1040,9 @@ body.light .vs-input{background:#fff;border-color:var(--border);color:var(--text
         <button class="ht-btn h-btn" onclick="toggleHT(this,'Hypoglycemia')" data-cause="Hypoglycemia"><span class="ht-badge h-badge">H</span> Hypoglycemia<br><small>D50% 50mL IV</small></button>
         <button class="ht-btn t-btn" onclick="toggleHT(this,'Tension Pneumo')" data-cause="Tension Pneumo"><span class="ht-badge t-badge">T</span> Tension Pneumo<br><small>needle decompression</small></button>
         <button class="ht-btn t-btn" onclick="toggleHT(this,'Tamponade')" data-cause="Tamponade"><span class="ht-badge t-badge">T</span> Tamponade<br><small>Echo → pericardiocentesis</small></button>
-        <button class="ht-btn t-btn" onclick="toggleHT(this,'Toxins')" data-cause="Toxins"><span class="ht-badge t-badge">T</span> Toxins<br><small>antidote</small></button>
-        <button class="ht-btn t-btn" onclick="toggleHT(this,'Thrombosis PE')" data-cause="Thrombosis PE"><span class="ht-badge t-badge">T</span> Thrombosis PE<br><small>tPA 50mg</small></button>
+        <button class="ht-btn t-btn" onclick="toggleHT(this,'Toxins')" data-cause="Toxins"><span class="ht-badge t-badge">T</span> Toxins<br><small>antidote / activated charcoal</small></button>
+        <button class="ht-btn t-btn" onclick="toggleHT(this,'Thrombosis PE')" data-cause="Thrombosis PE"><span class="ht-badge t-badge">T</span> Thrombosis PE<br><small>tPA 50mg IV</small></button>
         <button class="ht-btn t-btn" onclick="toggleHT(this,'Thrombosis MI')" data-cause="Thrombosis MI"><span class="ht-badge t-badge">T</span> Thrombosis MI<br><small>PCI / tPA</small></button>
-        <button class="ht-btn t-btn" onclick="toggleHT(this,'Trauma')" data-cause="Trauma"><span class="ht-badge t-badge">T</span> Trauma<br><small>hemorrhage control</small></button>
       </div>
       <div id="sumHTcauses" style="font-size:12px;color:var(--muted);font-style:italic">ยังไม่เลือกสาเหตุ</div>
     </div>
@@ -1938,7 +1963,33 @@ function showEKGCheck(isInitial) {
 }
 function closeEKGCheck() { const el=document.getElementById('ekgCheckOverlay'); if(el) el.remove(); }
 
-// ── Learning Mode — ข้าม EKG check เข้าแอปเลย ──
+// ── Collapsible panel toggle ──
+function togglePanel(bodyId, chevronId) {
+  const body = document.getElementById(bodyId);
+  const chev = document.getElementById(chevronId);
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  if (chev) { chev.style.transform = open ? '' : 'rotate(180deg)'; }
+}
+function _updateDrugBadge() {
+  const el = document.getElementById('drugSummaryBadge');
+  if (!el) return;
+  const total = S.drugs.filter(d => d.drug !== 'Airway' && d.drug !== 'Intubation (ETT)').length;
+  el.textContent = total ? total + ' รายการ' : '—';
+  el.style.color = total ? '#ffd54f' : 'var(--muted)';
+}
+function _updateFluidBadge() {
+  const el = document.getElementById('fluidSummaryBadge');
+  if (!el) return;
+  const total = S.fluids ? S.fluids.reduce((s,f)=>s+(f.volume||0),0) : 0;
+  const dtx = document.getElementById('dtxValue')?.value;
+  const parts = [];
+  if (total > 0) parts.push(total.toLocaleString()+' mL');
+  if (dtx) parts.push('DTX '+dtx);
+  el.textContent = parts.length ? parts.join(' · ') : '—';
+  el.style.color = parts.length ? '#4fc3f7' : 'var(--muted)';
+}
 function startLearning() {
   closeEKGCheck();
   addTimeline('🎓 Learning Mode — ฝึกซ้อม', 'system');
@@ -2286,6 +2337,7 @@ function logEpi(){
   document.getElementById('epiCount').textContent='ให้แล้ว '+S.epiCount+' ครั้ง';
   updateEpiHistory();S.drugs.push({time:ts,realTime:tsR,drug:'Epinephrine',dose:'1mg',route:'IV'});
   addTimeline('💉 Epinephrine 1mg IV (#'+S.epiCount+')','drug');startEpiTimer();toast('💉 Epi #'+S.epiCount+' — นับ 4 นาที');
+  _updateDrugBadge();
 }
 function updateEpiHistory(){
   const el=document.getElementById('epiHistory');if(!el)return;
@@ -2339,6 +2391,7 @@ function quickDrug(name,dose,route){
   if(name.startsWith('Amiodarone'))S.amioCount+=qty;
   document.getElementById('drugQty').value=1;document.getElementById('drugDoseOverride').value='';
   toast('💊 '+name+' '+useDose,'green');
+  _updateDrugBadge();
 }
 function logSelectDrug(){const sel=document.getElementById('otherDrugSelect');if(!sel.value){toast('เลือกยาก่อน');return;}quickDrug(sel.value,'','IV');sel.value='';}
 function logDTX(){
@@ -2347,6 +2400,7 @@ function logDTX(){
   if(v<70){txt='⚠ HYPO — D50% 50mL IV ทันที!';col='#ef5350';}else if(v<=180){txt='✅ ปกติ ('+v+' mg/dL)';col='#81c784';}else if(v<=250){txt='⚠ สูง ('+v+') — ติดตาม';col='#ffd54f';}else{txt='🔴 สูงมาก ('+v+') — Insulin';col='#ef5350';}
   document.getElementById('dtxInterpret').innerHTML='<span style="color:'+col+';font-weight:700">'+txt+'</span>';
   S.dtxLog.push({time:elapsedStr(),value:v});addTimeline('🩸 DTX = '+v+' mg/dL'+(v<70?' ⚠ HYPO!':''),'drug');toast('🩸 DTX '+v+' mg/dL',v<70?'red':'green');
+  _updateFluidBadge();
 }
 function logIntubateAndAdvance(){showIntubateModal();}
 function showIntubateModal(){
@@ -2488,6 +2542,7 @@ function saveVitals(){
 function logFluid(type,volume,route){
   const ml=parseInt(volume)||0;S.fluids=S.fluids||[];S.fluids.push({time:elapsedStr(),realTime:nowStr(),type,volume:ml,route});
   addTimeline('💧 '+type+' '+volume+' '+route,'drug');updateFluidHistory();toast('💧 '+type+' '+volume,'green');
+  _updateFluidBadge();
 }
 function logCustomFluid(){
   const type=document.getElementById('fluidTypeSelect').value,vol=document.getElementById('fluidVolumeInput').value;
@@ -2729,7 +2784,7 @@ function buildSummaryHTML(){
   const tl=S.timeline.map(t=>{const col={drug:'#e65100',rhythm:'#6a1b9a',shock:'#4a148c',cpr:'#0d47a1',rosc:'#1b5e20',system:'#555'}[t.type]||'#333';return '<div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid #eee;font-size:12px"><span style="color:#888;min-width:65px">'+(t.realTime||('T+'+t.time))+'</span><span style="color:'+col+'">'+t.text+'</span></div>';}).join('');
   const htCauses=(S.htCauses&&S.htCauses.length)?S.htCauses.map(c=>{const isH=['Hypoxia','Hypovolemia','H+ Acidosis','Hypo/Hyperkalemia','Hypothermia','Hypoglycemia'].includes(c);return '<span style="display:inline-block;margin:3px;padding:3px 10px;border-radius:4px;font-size:12px;font-weight:700;background:'+(isH?'#ffebee':'#f3e5f5')+';color:'+(isH?'#c62828':'#6a1b9a')+'">'+(isH?'H':'T')+' '+c+'</span>';}).join(''):'<span style="color:#888;font-size:12px">ไม่ได้ระบุ</span>';
   const cprTS=S.cprHistory.map(h=>'T+'+h.ts+' Cycle #'+h.cycle).join('<br>')||'-';const epiTS=S.epiHistory.map((h,i)=>'T+'+h.ts+' ครั้งที่ '+(i+1)).join('<br>')||'-';const shockTS=S.shockHistory.map((h,i)=>'T+'+h.ts+' ครั้งที่ '+(i+1)).join('<br>')||'-';
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap');body{font-family:'Sarabun',sans-serif;margin:0;padding:24px;background:#fff;color:#212121;font-size:13px}h1{font-size:18px;font-weight:800;margin:0 0 2px}h2{font-size:13px;font-weight:700;color:#555;margin:14px 0 6px;text-transform:uppercase;letter-spacing:.5px}.hero{background:#1a1a2e;color:#fff;padding:16px 20px;border-radius:8px;margin-bottom:14px}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}.stat{background:#f5f5f5;border-radius:6px;padding:10px;text-align:center}.stat .big{font-size:26px;font-weight:800;line-height:1}.stat .lbl{font-size:10px;color:#666;margin-top:2px}table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:14px}th{background:#1a73e8;color:#fff;padding:7px 10px;text-align:left;font-size:11px}td{padding:6px 10px;border-bottom:1px solid #eee}.ts-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px;font-size:12px}.ts-box{background:#f5f5f5;border-radius:6px;padding:10px}.ts-title{font-weight:700;margin-bottom:6px;color:#333}</style></head><body><div class="hero"><h1>สรุปเคส Resuscitation</h1><div style="margin-top:4px;font-size:14px;font-weight:700">${pat}</div><div style="font-size:11px;color:rgba(255,255,255,.65);margin-top:4px">เริ่ม: ${start} | ROSC: ${rosc}</div></div><div class="stats"><div class="stat"><div class="big" style="color:#1a73e8">${fmtTime(S.totalSec)}</div><div class="lbl">เวลารวม</div></div><div class="stat"><div class="big" style="color:${S.roscTime?'#1b5e20':'#b71c1c'}">${S.roscTime?'ROSC ✓':'No ROSC'}</div><div class="lbl">ผล ROSC</div></div><div class="stat"><div class="big" style="color:#1a73e8">${S.cprCycles}</div><div class="lbl">CPR Cycles</div></div><div class="stat"><div class="big" style="color:#6a1b9a">${S.shockCount}</div><div class="lbl">Shock</div></div><div class="stat"><div class="big" style="color:#e65100">${S.epiCount}</div><div class="lbl">Epinephrine</div></div><div class="stat"><div class="big" style="color:#6a1b9a">${S.amioCount}</div><div class="lbl">Amiodarone</div></div><div class="stat"><div class="big" style="color:#00838f">${S.intubated?'Yes':'No'}</div><div class="lbl">Intubation</div></div><div class="stat"><div class="big" style="color:#333">${outcome}</div><div class="lbl">Outcome</div></div></div><h2>Timestamps</h2><div class="ts-grid"><div class="ts-box"><div class="ts-title" style="color:#1565c0">💪 CPR Cycles</div><div style="color:#555;line-height:1.8">${cprTS}</div></div><div class="ts-box"><div class="ts-title" style="color:#e65100">💉 Epinephrine</div><div style="color:#555;line-height:1.8">${epiTS}</div></div><div class="ts-box"><div class="ts-title" style="color:#6a1b9a">⚡ Shock</div><div style="color:#555;line-height:1.8">${shockTS}</div></div></div><h2>ยาทั้งหมดที่ให้</h2><table><thead><tr><th>เวลา</th><th>ยา</th><th>Dose</th><th>จำนวน</th><th>Route</th></tr></thead><tbody>${drugs}</tbody></table><h2>💧 สารน้ำ IV</h2><table><thead><tr><th>เวลา</th><th>ชนิด</th><th>ปริมาณ</th><th>Route</th></tr></thead><tbody>${fluids}</tbody></table><h2>Reversible Causes (6H 6T)</h2><div style="background:#fff3f3;border:1px solid #ffcdd2;border-radius:6px;padding:10px;margin-bottom:14px">${htCauses}</div><h2>Timeline</h2><div style="border:1px solid #eee;border-radius:6px;padding:10px">${tl}</div>${notes?'<h2>หมายเหตุ</h2><div style="background:#fff9c4;padding:10px;border-radius:6px;font-size:13px">'+notes+'</div>':''}<div style="margin-top:20px;border-top:1px solid #eee;padding-top:10px;font-size:10px;color:#999;text-align:center">ศอช. ชั้น 10 | พิมพ์เมื่อ: ${new Date().toLocaleString('th-TH')} | ACLS Live Response</div></body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap');body{font-family:'Sarabun',sans-serif;margin:0;padding:24px;background:#fff;color:#212121;font-size:13px}h1{font-size:18px;font-weight:800;margin:0 0 2px}h2{font-size:13px;font-weight:700;color:#555;margin:14px 0 6px;text-transform:uppercase;letter-spacing:.5px}.hero{background:#1a1a2e;color:#fff;padding:16px 20px;border-radius:8px;margin-bottom:14px}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}.stat{background:#f5f5f5;border-radius:6px;padding:10px;text-align:center}.stat .big{font-size:26px;font-weight:800;line-height:1}.stat .lbl{font-size:10px;color:#666;margin-top:2px}table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:14px}th{background:#1a73e8;color:#fff;padding:7px 10px;text-align:left;font-size:11px}td{padding:6px 10px;border-bottom:1px solid #eee}.ts-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px;font-size:12px}.ts-box{background:#f5f5f5;border-radius:6px;padding:10px}.ts-title{font-weight:700;margin-bottom:6px;color:#333}</style></head><body><div class="hero"><h1>สรุปเคส Resuscitation</h1><div style="margin-top:4px;font-size:14px;font-weight:700">${pat}</div><div style="font-size:11px;color:rgba(255,255,255,.65);margin-top:4px">เริ่ม: ${start} | ROSC: ${rosc}</div></div><div class="stats"><div class="stat"><div class="big" style="color:#1a73e8">${fmtTime(S.totalSec)}</div><div class="lbl">เวลารวม</div></div><div class="stat"><div class="big" style="color:${S.roscTime?'#1b5e20':'#b71c1c'}">${S.roscTime?'ROSC ✓':'No ROSC'}</div><div class="lbl">ผล ROSC</div></div><div class="stat"><div class="big" style="color:#1a73e8">${S.cprCycles}</div><div class="lbl">CPR Cycles</div></div><div class="stat"><div class="big" style="color:#6a1b9a">${S.shockCount}</div><div class="lbl">Shock</div></div><div class="stat"><div class="big" style="color:#e65100">${S.epiCount}</div><div class="lbl">Epinephrine</div></div><div class="stat"><div class="big" style="color:#6a1b9a">${S.amioCount}</div><div class="lbl">Amiodarone</div></div><div class="stat"><div class="big" style="color:#00838f">${S.intubated?'Yes':'No'}</div><div class="lbl">Intubation</div></div><div class="stat"><div class="big" style="color:#333">${outcome}</div><div class="lbl">Outcome</div></div></div><h2>Timestamps</h2><div class="ts-grid"><div class="ts-box"><div class="ts-title" style="color:#1565c0">💪 CPR Cycles</div><div style="color:#555;line-height:1.8">${cprTS}</div></div><div class="ts-box"><div class="ts-title" style="color:#e65100">💉 Epinephrine</div><div style="color:#555;line-height:1.8">${epiTS}</div></div><div class="ts-box"><div class="ts-title" style="color:#6a1b9a">⚡ Shock</div><div style="color:#555;line-height:1.8">${shockTS}</div></div></div><h2>ยาทั้งหมดที่ให้</h2><table><thead><tr><th>เวลา</th><th>ยา</th><th>Dose</th><th>จำนวน</th><th>Route</th></tr></thead><tbody>${drugs}</tbody></table><h2>💧 สารน้ำ IV</h2><table><thead><tr><th>เวลา</th><th>ชนิด</th><th>ปริมาณ</th><th>Route</th></tr></thead><tbody>${fluids}</tbody></table><h2>Reversible Causes (6H 5T)</h2><div style="background:#fff3f3;border:1px solid #ffcdd2;border-radius:6px;padding:10px;margin-bottom:14px">${htCauses}</div><h2>Timeline</h2><div style="border:1px solid #eee;border-radius:6px;padding:10px">${tl}</div>${notes?'<h2>หมายเหตุ</h2><div style="background:#fff9c4;padding:10px;border-radius:6px;font-size:13px">'+notes+'</div>':''}<div style="margin-top:20px;border-top:1px solid #eee;padding-top:10px;font-size:10px;color:#999;text-align:center">ศอช. ชั้น 10 | พิมพ์เมื่อ: ${new Date().toLocaleString('th-TH')} | ACLS Live Response</div></body></html>`;
 }
 
 function exportImage(){
@@ -2741,7 +2796,7 @@ function exportImage(){
 // ══════════════════════════════════════════
 //  PIN MODAL — Google Sheet (PIN: 952)
 // ══════════════════════════════════════════
-const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1feUBfVmLMgi6SCWPg3VAWH95ONysY1bUDom5cCllqwE/edit?usp=sharing';
+const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1mh_VxRhSjkAOzGPe3J3mZ4gRpJqLYhJb3tQH-0K1234/edit';
 const SHEET_PIN = '952';
 let _pin = '';
 
