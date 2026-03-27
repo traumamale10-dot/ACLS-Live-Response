@@ -1102,7 +1102,14 @@ body.light .vs-input{background:#fff;border-color:var(--border);color:var(--text
     <div style="background:rgba(217,48,37,.07);border:1px solid rgba(217,48,37,.3);border-radius:10px;padding:12px;margin-bottom:12px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div style="font-size:13px;color:#ef9a9a;font-weight:700">🔍 Reversible Causes — 6H 5T</div>
-        <span id="htSelectedCount" style="font-size:12px;color:#ef9a9a;font-weight:600">ยังไม่เลือก</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span id="htSelectedCount" style="font-size:12px;color:#ef9a9a;font-weight:600">ยังไม่เลือก</span>
+          <button onclick="analyzeHTFromData()" style="font-size:11px;padding:4px 10px;border-radius:6px;
+            border:1px solid rgba(217,48,37,.5);background:rgba(217,48,37,.15);color:#ef9a9a;
+            cursor:pointer;font-family:'Sarabun',sans-serif;font-weight:700">
+            🤖 วิเคราะห์จาก Data
+          </button>
+        </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:8px">
         <button class="ht-btn h-btn" onclick="toggleHT(this,'Hypoxia')" data-cause="Hypoxia"><span class="ht-badge h-badge">H</span> Hypoxia<br><small>O₂ 100% / intubate</small></button>
@@ -1118,6 +1125,16 @@ body.light .vs-input{background:#fff;border-color:var(--border);color:var(--text
         <button class="ht-btn t-btn" onclick="toggleHT(this,'Thrombosis MI')" data-cause="Thrombosis MI"><span class="ht-badge t-badge">T</span> Thrombosis MI<br><small>PCI / tPA</small></button>
       </div>
       <div id="sumHTcauses" style="font-size:12px;color:var(--muted);font-style:italic">ยังไม่เลือกสาเหตุ</div>
+
+      <!-- ผลวิเคราะห์สาเหตุจาก Data -->
+      <div id="htAnalysisResult" style="display:none;margin-top:10px;border-top:1px solid rgba(217,48,37,.2);padding-top:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="font-size:12px;font-weight:800;color:#ef9a9a">🤖 วิเคราะห์สาเหตุจาก Lab / Vitals / DTX</div>
+          <button onclick="document.getElementById('htAnalysisResult').style.display='none'"
+            style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:15px">✕</button>
+        </div>
+        <div id="htAnalysisContent"></div>
+      </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
       <div><label>Outcome</label>
@@ -1146,8 +1163,8 @@ body.light .vs-input{background:#fff;border-color:var(--border);color:var(--text
   <div style="background:var(--card);border:1px solid var(--border);border-radius:18px;
     padding:30px 24px;max-width:300px;width:100%;text-align:center">
     <div style="font-size:36px;margin-bottom:6px">🔒</div>
-    <div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:4px">ใส่รหัสผ่าน</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:22px">เพื่อเข้าดูข้อมูลใน Google Sheet</div>
+    <div id="pinModalTitle" style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:4px">🔒 ใส่รหัสผ่าน</div>
+    <div id="pinModalSub" style="font-size:12px;color:var(--muted);margin-bottom:22px">เพื่อเข้าดูข้อมูลใน Google Sheet</div>
 
     <!-- dots -->
     <div style="display:flex;justify-content:center;gap:14px;margin-bottom:22px" id="pinDots">
@@ -2075,7 +2092,7 @@ function showEKGCheck(isInitial) {
         background:rgba(255,213,0,.06);color:#ffd54f;font-family:Sarabun,sans-serif;
         font-size:14px;font-weight:700;cursor:pointer;transition:.15s"
         onmouseover="this.style.background='rgba(255,213,0,.12)'" onmouseout="this.style.background='rgba(255,213,0,.06)'">
-        🎓 Learning Mode — ฝึกซ้อม ไม่ต้องเลือก EKG
+        ❓ ไม่ทราบ EKG ยังไม่ติด Defibrillator
       </button>
     </div>`;
   }
@@ -2737,9 +2754,11 @@ function _assessStability() {
 function showPulseAlgo(rhythm) {
   const algo = ALGO[rhythm]; if (!algo) return;
   PS.rhythm = rhythm; PS.stepIdx = 0; PS.stability = null;
-  addTimeline('💚 เริ่ม Algo: ' + algo.title, 'rhythm');
+  // ยังไม่ log timeline — รอจน selectPulseStability (เริ่มรักษาจริง)
   if (!algo.stableSteps && !algo.unstableSteps) {
     PS.stability = 'stable';
+    // STEMI ไม่มี stable/unstable — log ทันทีเมื่อกด
+    addTimeline('💚 เริ่ม: ' + algo.title, 'rhythm');
     const box = document.getElementById('pulseAlgoBox');
     box.style.display = '';
     _renderPulseAlgo();
@@ -2754,6 +2773,157 @@ function showPulseAlgo(rhythm) {
 function _renderStabilitySelector(rhythm, algo) {
   const { isUnstable, findings } = _assessStability();
   const hasVitals = findings.length > 0;
+
+  // ── EKG SVG ตัวอย่างแต่ละ rhythm (พื้นขาว เส้นน้ำเงิน/แดง) ──
+  const EKG_PULSE = {
+    SVT:
+      '<svg viewBox="0 0 480 56" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:52px;display:block">' +
+      '<rect width="480" height="56" fill="#ffffff"/>' +
+      '<line x1="0" y1="28" x2="480" y2="28" stroke="#e0e0e0" stroke-width="0.5"/>' +
+      // narrow QRS fast rate ~180bpm (interval ~16px)
+      '<polyline fill="none" stroke="#1565c0" stroke-width="2" stroke-linejoin="round" points="' +
+      '0,28 4,28 5,20 6,8 7,48 8,28 20,28 21,20 22,8 23,48 24,28 36,28 37,20 38,8 39,48 40,28 52,28 53,20 54,8 55,48 56,28 68,28 69,20 70,8 71,48 72,28 84,28 85,20 86,8 87,48 88,28 100,28 101,20 102,8 103,48 104,28 116,28 117,20 118,8 119,48 120,28 132,28 133,20 134,8 135,48 136,28 148,28 149,20 150,8 151,48 152,28 164,28 165,20 166,8 167,48 168,28 180,28 181,20 182,8 183,48 184,28 196,28 197,20 198,8 199,48 200,28 212,28 213,20 214,8 215,48 216,28 228,28 229,20 230,8 231,48 232,28 244,28 245,20 246,8 247,48 248,28 260,28 261,20 262,8 263,48 264,28 276,28 277,20 278,8 279,48 280,28 292,28 293,20 294,8 295,48 296,28 308,28 309,20 310,8 311,48 312,28 324,28 325,20 326,8 327,48 328,28 340,28 341,20 342,8 343,48 344,28 356,28 357,20 358,8 359,48 360,28 372,28 373,20 374,8 375,48 376,28 388,28 389,20 390,8 391,48 392,28 404,28 405,20 406,8 407,48 408,28 420,28 421,20 422,8 423,48 424,28 436,28 437,20 438,8 439,48 440,28 452,28 453,20 454,8 455,48 456,28 468,28 469,20 470,8 471,48 472,28 480,28"/>' +
+      '<text x="6" y="53" font-size="9" fill="#0d47a1" font-family="monospace" font-weight="bold">SVT — Narrow QRS, Regular, Fast (~180 bpm)</text></svg>',
+
+    AF:
+      '<svg viewBox="0 0 480 56" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:52px;display:block">' +
+      '<rect width="480" height="56" fill="#ffffff"/>' +
+      '<line x1="0" y1="28" x2="480" y2="28" stroke="#e0e0e0" stroke-width="0.5"/>' +
+      // fibrillatory baseline + irregular narrow QRS
+      '<polyline fill="none" stroke="#9b9b9b" stroke-width="1" stroke-linejoin="round" points="0,28 4,27 8,29 12,27 16,28 20,29 24,27 28,28 32,29 36,27 40,28 44,29 48,27 52,28 56,29 60,27 64,28 68,29 72,27 76,28 80,27 84,28 88,29 92,27 96,28 100,29 104,27 108,28 112,27 116,28 120,27 124,28 128,29 132,27 136,28 140,29 144,27 148,28 152,27 156,28 160,29 164,27 168,28 172,27 176,28 180,29 184,27 188,28 192,29 196,27 200,28 204,29 208,27 212,28 216,27 220,28 224,29 228,27 232,28 236,27 240,28 244,29 248,27 252,28 256,29 260,27 264,28 268,27 272,28 276,29 280,27 284,28 288,27 292,28 296,29 300,27 304,28 308,29 312,27 316,28 320,27 324,28 328,29 332,27 336,28 340,29 344,27 348,28 352,27 356,28 360,29 364,27 368,28 372,27 376,28 380,29 384,27 388,28 392,29 396,27 400,28 404,27 408,28 412,29 416,27 420,28 424,29 428,27 432,28 436,27 440,28 444,29 448,27 452,28 456,29 460,27 464,28 468,27 472,28 476,29 480,28"/>' +
+      '<polyline fill="none" stroke="#1565c0" stroke-width="2.2" stroke-linejoin="round" points="18,28 19,22 20,8 21,48 22,28 36,28 37,22 38,8 39,48 40,28 62,28 63,22 64,8 65,48 66,28 95,28 96,22 97,8 98,48 99,28 124,28 125,22 126,8 127,48 128,28 155,28 156,22 157,8 158,48 159,28 182,28 183,22 184,8 185,48 186,28 215,28 216,22 217,8 218,48 219,28 246,28 247,22 248,8 249,48 250,28 270,28 271,22 272,8 273,48 274,28 302,28 303,22 304,8 305,48 306,28 335,28 336,22 337,8 338,48 339,28 360,28 361,22 362,8 363,48 364,28 395,28 396,22 397,8 398,48 399,28 424,28 425,22 426,8 427,48 428,28 458,28 459,22 460,8 461,48 462,28"/>' +
+      '<text x="6" y="53" font-size="9" fill="#0d47a1" font-family="monospace" font-weight="bold">AF — Irregular RR, No P wave, Fibrillatory baseline</text></svg>',
+
+    SinusBrady:
+      '<svg viewBox="0 0 480 56" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:52px;display:block">' +
+      '<rect width="480" height="56" fill="#ffffff"/>' +
+      '<line x1="0" y1="32" x2="480" y2="32" stroke="#e0e0e0" stroke-width="0.5"/>' +
+      // slow rate ~40bpm, interval ~72px, P wave visible
+      '<polyline fill="none" stroke="#1565c0" stroke-width="2" stroke-linejoin="round" points="' +
+      '0,32 8,32 10,30 12,32 16,32 18,28 20,32 22,6 24,50 26,32 28,30 30,28 32,30 34,32 38,26 40,28 42,32' +
+      ' 80,32 82,30 84,32 88,32 90,28 92,32 94,6 96,50 98,32 100,30 102,28 104,30 106,32 110,26 112,28 114,32' +
+      ' 152,32 154,30 156,32 160,32 162,28 164,32 166,6 168,50 170,32 172,30 174,28 176,30 178,32 182,26 184,28 186,32' +
+      ' 224,32 226,30 228,32 232,32 234,28 236,32 238,6 240,50 242,32 244,30 246,28 248,30 250,32 254,26 256,28 258,32' +
+      ' 296,32 298,30 300,32 304,32 306,28 308,32 310,6 312,50 314,32 316,30 318,28 320,30 322,32 326,26 328,28 330,32' +
+      ' 368,32 370,30 372,32 376,32 378,28 380,32 382,6 384,50 386,32 388,30 390,28 392,30 394,32 398,26 400,28 402,32' +
+      ' 440,32 442,30 444,32 448,32 450,28 452,32 454,6 456,50 458,32 460,30 462,28 464,30 466,32 470,26 472,28 474,32 480,32"/>' +
+      '<text x="6" y="53" font-size="9" fill="#0d47a1" font-family="monospace" font-weight="bold">Sinus Brady — P before QRS, Regular, Slow (&lt;50 bpm)</text></svg>',
+
+    AVBlock:
+      // ── 1st Degree AV Block ── PR interval ยาว (>0.20s) ทุก P นำ QRS
+      // Beat interval ~96px (62bpm) | P wave กลมเล็ก | PR ยาว | QRS แหลม | T wave กลม
+      '<svg viewBox="0 0 480 60" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:60px;display:block">' +
+      '<rect width="480" height="60" fill="#fff"/>' +
+      '<line x1="0" y1="36" x2="480" y2="36" stroke="#ddd" stroke-width="0.5"/>' +
+      '<path fill="none" stroke="#1565c0" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" d="' +
+      // Beat 1: baseline → P wave กลม → baseline ยาว (PR ยาว) → QRS spike → S wave → T wave กลม
+      'M0,36 L8,36 Q12,28 16,36 L28,36 Q30,33 32,36 L34,4 L36,56 L38,36 Q44,26 50,36 L96,36 ' +
+      // Beat 2
+      'Q100,28 104,36 L116,36 Q118,33 120,36 L122,4 L124,56 L126,36 Q132,26 138,36 L192,36 ' +
+      // Beat 3
+      'Q196,28 200,36 L212,36 Q214,33 216,36 L218,4 L220,56 L222,36 Q228,26 234,36 L288,36 ' +
+      // Beat 4
+      'Q292,28 296,36 L308,36 Q310,33 312,36 L314,4 L316,56 L318,36 Q324,26 330,36 L384,36 ' +
+      // Beat 5
+      'Q388,28 392,36 L404,36 Q406,33 408,36 L410,4 L412,56 L414,36 Q420,26 426,36 L480,36"/>' +
+      '<text x="4" y="12" font-size="8.5" fill="#1565c0" font-family="monospace" font-weight="bold">1st Degree — P→QRS ทุกครั้ง, PR interval ยาว (&gt;200ms)</text>' +
+      '</svg>' +
+
+      // ── 2nd Degree Mobitz I (Wenckebach) ── PR ยาวขึ้นเรื่อยๆ จน drop 1 beat
+      // Pattern 3:1 — beat1(PR ปกติ) beat2(PR ยาว) beat3(PR ยาวมาก) P4(block ไม่มี QRS)
+      '<svg viewBox="0 0 480 60" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:60px;display:block;border-top:1px solid #eee">' +
+      '<rect width="480" height="60" fill="#fff"/>' +
+      '<line x1="0" y1="36" x2="480" y2="36" stroke="#ddd" stroke-width="0.5"/>' +
+      '<path fill="none" stroke="#e65100" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" d="' +
+      // Beat 1: PR ปกติ ~120ms
+      'M0,36 L6,36 Q10,28 14,36 L22,36 Q24,33 26,36 L28,4 L30,56 L32,36 Q38,26 44,36 L80,36 ' +
+      // Beat 2: PR ยาวขึ้น ~200ms
+      'Q84,28 88,36 L102,36 Q104,33 106,36 L108,4 L110,56 L112,36 Q118,26 124,36 L168,36 ' +
+      // Beat 3: PR ยาวมาก ~280ms
+      'Q172,28 176,36 L198,36 Q200,33 202,36 L204,4 L206,56 L208,36 Q214,26 220,36 L256,36 ' +
+      // P4: BLOCKED — P wave ลอยโดดๆ ไม่มี QRS ตามมา
+      'Q260,28 264,36 L290,36 ' +
+      // Cycle ใหม่: Beat 1 PR ปกติ
+      'Q294,28 298,36 L306,36 Q308,33 310,36 L312,4 L314,56 L316,36 Q322,26 328,36 L364,36 ' +
+      // Beat 2: PR ยาวขึ้น
+      'Q368,28 372,36 L386,36 Q388,33 390,36 L392,4 L394,56 L396,36 Q402,26 408,36 L448,36 ' +
+      // P blocked อีกครั้ง
+      'Q452,28 456,36 L480,36"/>' +
+      // ลูกศรชี้ P ที่ block
+      '<text x="253" y="14" font-size="9" fill="#e65100" font-family="monospace">↓Block</text>' +
+      '<text x="440" y="14" font-size="9" fill="#e65100" font-family="monospace">↓Block</text>' +
+      '<text x="4" y="57" font-size="8.5" fill="#e65100" font-family="monospace" font-weight="bold">2nd Degree Mobitz I (Wenckebach) — PR ยาวขึ้นเรื่อยๆ จน drop beat</text>' +
+      '</svg>' +
+
+      // ── 3rd Degree (Complete AV Block) ── P และ QRS แยกอิสระ เส้นแดงสีเดียว
+      // P rate ~75/min | QRS escape ~35/min | P บางตัวซ่อนใน QRS/T
+      '<svg viewBox="0 0 480 60" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:60px;display:block;border-top:1px solid #eee">' +
+      '<rect width="480" height="60" fill="#fff"/>' +
+      '<line x1="0" y1="38" x2="480" y2="38" stroke="#ddd" stroke-width="0.5"/>' +
+      // เส้นเดียว: baseline + P waves กลม + QRS escape ช้า (ไม่สัมพันธ์กัน)
+      // P interval ~64px, QRS interval ~137px
+      // P1(x=10) P2(x=74) P3(x=138) QRS1(x=100) P4(x=202) P5(x=266) QRS2(x=237) P6(x=330) P7(x=394) QRS3(x=374)
+      '<path fill="none" stroke="#c62828" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" d="' +
+      // start baseline
+      'M0,38 ' +
+      // P1 กลม (x=10)
+      'L6,38 Q10,30 14,38 ' +
+      // baseline → P2 (x=74)
+      'L70,38 Q74,30 78,38 ' +
+      // baseline → QRS1 spike สูงแหลม (x=100) — P3 ซ่อนอยู่ใน QRS
+      'L96,38 L98,22 L100,4 L102,54 L104,38 ' +
+      // S wave → T wave กลม → baseline
+      'Q106,34 108,38 Q116,26 124,38 ' +
+      // P3 ตำแหน่ง x=138 แต่อยู่หลัง T wave → เห็นชัด
+      'L134,38 Q138,30 142,38 ' +
+      // P4 (x=202)
+      'L198,38 Q202,30 206,38 ' +
+      // baseline → QRS2 (x=237)
+      'L233,38 L235,22 L237,4 L239,54 L241,38 ' +
+      // T wave
+      'Q243,34 245,38 Q253,26 261,38 ' +
+      // P5 (x=266) หลัง T wave
+      'L262,38 Q266,30 270,38 ' +
+      // P6 (x=330)
+      'L326,38 Q330,30 334,38 ' +
+      // QRS3 (x=374) — P7 ซ่อนใน QRS
+      'L370,38 L372,22 L374,4 L376,54 L378,38 ' +
+      // T wave
+      'Q380,34 382,38 Q390,26 398,38 ' +
+      // P7 (x=394) อยู่ใน T → เห็นเป็นกระเปาะใน T
+      // P8 (x=458) หลัง T
+      'L454,38 Q458,30 462,38 ' +
+      'L480,38"/>' +
+      '<text x="4" y="13" font-size="8" fill="#c62828" font-family="monospace">P waves (กลม) และ QRS (แหลม) ไม่สัมพันธ์กัน</text>' +
+      '<text x="4" y="57" font-size="8.5" fill="#b71c1c" font-family="monospace" font-weight="bold">3rd Degree (Complete AV Block) — P &amp; QRS อิสระสมบูรณ์, escape ช้า</text>' +
+      '</svg>',
+
+    VT_pulse:
+      '<svg viewBox="0 0 480 56" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:52px;display:block">' +
+      '<rect width="480" height="56" fill="#ffffff"/>' +
+      '<line x1="0" y1="30" x2="480" y2="30" stroke="#e0e0e0" stroke-width="0.5"/>' +
+      // wide monomorphic QRS fast ~130bpm
+      '<polyline fill="none" stroke="#6a1b9a" stroke-width="2.2" stroke-linejoin="round" points="' +
+      '0,30 4,30 6,24 8,8 10,2 12,8 14,48 16,50 18,44 20,30 36,30 38,24 40,8 42,2 44,8 46,48 48,50 50,44 52,30 68,30 70,24 72,8 74,2 76,8 78,48 80,50 82,44 84,30 100,30 102,24 104,8 106,2 108,8 110,48 112,50 114,44 116,30 132,30 134,24 136,8 138,2 140,8 142,48 144,50 146,44 148,30 164,30 166,24 168,8 170,2 172,8 174,48 176,50 178,44 180,30 196,30 198,24 200,8 202,2 204,8 206,48 208,50 210,44 212,30 228,30 230,24 232,8 234,2 236,8 238,48 240,50 242,44 244,30 260,30 262,24 264,8 266,2 268,8 270,48 272,50 274,44 276,30 292,30 294,24 296,8 298,2 300,8 302,48 304,50 306,44 308,30 324,30 326,24 328,8 330,2 332,8 334,48 336,50 338,44 340,30 356,30 358,24 360,8 362,2 364,8 366,48 368,50 370,44 372,30 388,30 390,24 392,8 394,2 396,8 398,48 400,50 402,44 404,30 420,30 422,24 424,8 426,2 428,8 430,48 432,50 434,44 436,30 452,30 454,24 456,8 458,2 460,8 462,48 464,50 466,44 468,30 480,30"/>' +
+      '<text x="6" y="53" font-size="9" fill="#4a148c" font-family="monospace" font-weight="bold">VT with Pulse — Wide QRS, Monomorphic, Regular (~130 bpm)</text></svg>',
+
+    STEMI:
+      '<svg viewBox="0 0 480 56" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:52px;display:block">' +
+      '<rect width="480" height="56" fill="#ffffff"/>' +
+      '<line x1="0" y1="32" x2="480" y2="32" stroke="#e0e0e0" stroke-width="0.5"/>' +
+      // sinus with ST elevation
+      '<polyline fill="none" stroke="#c62828" stroke-width="2" stroke-linejoin="round" points="' +
+      '0,32 8,32 10,30 12,32 16,32 18,28 20,32 22,6 24,48 26,20 30,16 34,20 36,32 40,30 42,32' +
+      ' 88,32 90,30 92,32 96,32 98,28 100,32 102,6 104,48 106,20 110,16 114,20 116,32 120,30 122,32' +
+      ' 168,32 170,30 172,32 176,32 178,28 180,32 182,6 184,48 186,20 190,16 194,20 196,32 200,30 202,32' +
+      ' 248,32 250,30 252,32 256,32 258,28 260,32 262,6 264,48 266,20 270,16 274,20 276,32 280,30 282,32' +
+      ' 328,32 330,30 332,32 336,32 338,28 340,32 342,6 344,48 346,20 350,16 354,20 356,32 360,30 362,32' +
+      ' 408,32 410,30 412,32 416,32 418,28 420,32 422,6 424,48 426,20 430,16 434,20 436,32 440,30 442,32 480,32"/>' +
+      '<line x1="26" y1="16" x2="36" y2="16" stroke="rgba(198,40,40,.3)" stroke-width="1" stroke-dasharray="4,3"/>' +
+      '<text x="6" y="53" font-size="9" fill="#b71c1c" font-family="monospace" font-weight="bold">STEMI — ST Elevation, Tombstone pattern</text></svg>'
+  };
+
+  const ekgSvg = EKG_PULSE[rhythm] || '';
 
   const vitalHTML = hasVitals
     ? findings.map(f => '<span style="padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:' +
@@ -2776,7 +2946,12 @@ function _renderStabilitySelector(rhythm, algo) {
 
   document.getElementById('pulseAlgoContent').innerHTML =
     '<div>' +
-    '<div style="font-size:15px;font-weight:800;color:' + (algo.color||'#82b1ff') + ';margin-bottom:10px">🧠 ' + algo.title + '</div>' +
+    '<div style="font-size:15px;font-weight:800;color:' + (algo.color||'#82b1ff') + ';margin-bottom:8px">🧠 ' + algo.title + '</div>' +
+
+    // EKG section — AVBlock มี 3 strip, อื่นๆ 1 strip
+    (ekgSvg ? '<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:10px">' +
+      '<div style="font-size:9px;color:var(--muted);padding:4px 8px;background:rgba(255,255,255,.04);text-transform:uppercase;letter-spacing:.5px">📈 EKG Pattern ตัวอย่าง' + (rhythm==='AVBlock' ? ' — 1st / 2nd (Wenckebach) / 3rd Degree' : '') + '</div>' +
+      ekgSvg + '</div>' : '') +
 
     '<div style="background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:10px">' +
       '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">📊 Vital Signs ล่าสุด</div>' +
@@ -2880,13 +3055,61 @@ function _renderPulseAlgo() {
 
 function _pulseActionBtn(step, i, ds) {
   const a = step.action;
-  if (!a)          return `<button class="step-action-btn btn-log-cpr" style="background:#546e7a;${ds}" onclick="advancePulseStep()">✓ ทำแล้ว → ถัดไป</button>`;
-  if (a==='shock') return `<button class="step-action-btn btn-log-shock" style="${ds}" onclick="logShock();advancePulseStep()">⚡ Shock แล้ว → ถัดไป</button>`;
-  if (a==='epi')   return `<button class="step-action-btn btn-log-drug" style="${ds}" onclick="logEpi();advancePulseStep()">✓ ให้ยาแล้ว → ถัดไป</button>`;
-  if (a==='amio')  return `<button class="step-action-btn btn-log-drug" style="${ds}" onclick="logAmio();advancePulseStep()">✓ ให้ Amio แล้ว → ถัดไป</button>`;
-  if (a==='drug')  return `<button class="step-action-btn btn-log-drug" style="${ds}" onclick="logDrug('${(step.drug||'').replace(/[<>'"]/g,'')}');advancePulseStep()">✓ ให้ยาแล้ว → ถัดไป</button>`;
-  if (a==='vs_check') return `<button class="step-action-btn" style="background:rgba(26,115,232,.25);border:1px solid rgba(26,115,232,.5);color:#82b1ff;${ds}" onclick="togglePulseVS();advancePulseStep()">📊 บันทึก Vital Signs → เสร็จ</button>`;
-  return `<button class="step-action-btn btn-log-cpr" style="background:#546e7a;${ds}" onclick="advancePulseStep()">✓ ทำแล้ว → ถัดไป</button>`;
+  const endBtn = `<button class="step-action-btn" style="background:rgba(255,255,255,.07);border:1px solid var(--border);color:var(--muted);${ds}" onclick="endPulseAlgo()">⏹ สิ้นสุดการรักษา</button>`;
+
+  let nextBtn = '';
+  if (!a)          nextBtn = `<button class="step-action-btn btn-log-cpr" style="background:#546e7a;${ds}" onclick="advancePulseStep()">✓ ทำแล้ว → ถัดไป</button>`;
+  else if (a==='shock') nextBtn = `<button class="step-action-btn btn-log-shock" style="${ds}" onclick="logShock();advancePulseStep()">⚡ Shock แล้ว → ถัดไป</button>`;
+  else if (a==='epi')   nextBtn = `<button class="step-action-btn btn-log-drug" style="${ds}" onclick="logEpi();advancePulseStep()">✓ ให้ยาแล้ว → ถัดไป</button>`;
+  else if (a==='amio')  nextBtn = `<button class="step-action-btn btn-log-drug" style="${ds}" onclick="logAmio();advancePulseStep()">✓ ให้ Amio แล้ว → ถัดไป</button>`;
+  else if (a==='drug')  nextBtn = `<button class="step-action-btn btn-log-drug" style="${ds}" onclick="logDrug('${(step.drug||'').replace(/[<>'"]/g,'')}');advancePulseStep()">✓ ให้ยาแล้ว → ถัดไป</button>`;
+  else if (a==='vs_check') nextBtn = `<button class="step-action-btn" style="background:rgba(26,115,232,.25);border:1px solid rgba(26,115,232,.5);color:#82b1ff;${ds}" onclick="togglePulseVS();advancePulseStep()">📊 บันทึก Vital Signs → เสร็จ</button>`;
+  else nextBtn = `<button class="step-action-btn btn-log-cpr" style="background:#546e7a;${ds}" onclick="advancePulseStep()">✓ ทำแล้ว → ถัดไป</button>`;
+
+  // vs_check ไม่ต้องมีปุ่ม end (เป็น step สุดท้ายอยู่แล้ว)
+  if (a === 'vs_check') return `<div style="margin-top:6px">${nextBtn}</div>`;
+
+  return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${nextBtn}${endBtn}</div>`;
+}
+
+function endPulseAlgo() {
+  const algo = ALGO[PS.rhythm];
+  const title = algo ? algo.title : 'Algo';
+  addTimeline('⏹ สิ้นสุด: ' + title, 'rhythm');
+
+  // mark current step done
+  const cur = document.getElementById('pstep_' + PS.stepIdx);
+  if (cur) {
+    cur.classList.remove('next-step'); cur.classList.add('done-step');
+    const num = cur.querySelector('.step-num');
+    if (num) { num.className='step-num done'; num.textContent='✓'; }
+    cur.querySelectorAll('button').forEach(b=>{ b.disabled=true; b.style.opacity='.35'; });
+    const badge = cur.querySelector('.next-badge'); if (badge) badge.remove();
+  }
+
+  // mark remaining steps as skipped
+  const steps = PS.stability === 'unstable'
+    ? (algo?.unstableSteps || algo?.stableSteps || algo?.steps || [])
+    : (algo?.stableSteps || algo?.steps || []);
+  for (let j = PS.stepIdx + 1; j < steps.length; j++) {
+    const el = document.getElementById('pstep_' + j);
+    if (el) {
+      el.style.opacity = '.2';
+      el.querySelectorAll('button').forEach(b=>{ b.disabled=true; b.style.pointerEvents='none'; });
+    }
+  }
+
+  // แสดง summary สิ้นสุด + เปิด VS panel
+  const content = document.getElementById('pulseAlgoContent');
+  const endDiv = document.createElement('div');
+  endDiv.style.cssText = 'background:rgba(249,171,0,.1);border:1px solid rgba(249,171,0,.4);border-radius:8px;padding:12px;text-align:center;margin-top:8px';
+  endDiv.innerHTML = '<div style="font-size:16px;margin-bottom:4px">⏹</div>' +
+    '<div style="font-weight:800;color:#ffd54f">สิ้นสุดการรักษา</div>' +
+    '<div style="font-size:11px;color:var(--muted);margin-top:4px">บันทึก Vital Signs และ monitor ต่อเนื่อง</div>';
+  if (content) content.appendChild(endDiv);
+
+  togglePulseVS();
+  toast('⏹ สิ้นสุด — บันทึก Vital Signs', 'green');
 }
 
 function togglePulseVS() {
@@ -3037,7 +3260,225 @@ function showSummary(){
 function removeSumTL(idx){S.timeline.splice(idx,1);showSummary();}
 function removeDrug(idx){if(!confirm('ลบรายการยานี้?'))return;const removed=S.drugs.splice(idx,1)[0];if(removed?.drug==='Epinephrine')S.epiCount=Math.max(0,S.epiCount-1);if(removed?.drug?.startsWith('Amiodarone'))S.amioCount=Math.max(0,S.amioCount-1);showSummary();toast('🗑 ลบ '+(removed?.drug||'ยา')+' แล้ว');}
 
-function toggleHT(btn,cause){btn.classList.toggle('selected');updateHTSummary();}
+// ══════════════════════════════════════════
+//  วิเคราะห์ 6H 5T จาก Lab + DTX + Vitals
+// ══════════════════════════════════════════
+function analyzeHTFromData() {
+  const lab = S.labValues || {};
+  const vit = S.vitals   || {};
+
+  // ดึงค่า Lab
+  const pH   = parseFloat(lab.lab_pH);
+  const pco2 = parseFloat(lab.lab_pco2);
+  const po2  = parseFloat(lab.lab_po2);
+  const hco3 = parseFloat(lab.lab_hco3);
+  const be   = parseFloat(lab.lab_be);
+  const lac  = parseFloat(lab.lab_lac);
+  const k    = parseFloat(lab.lab_k);
+  const na   = parseFloat(lab.lab_na);
+  const ca   = parseFloat(lab.lab_ca);
+  const hb   = parseFloat(lab.lab_hb);
+  const trop = parseFloat(lab.lab_trop);
+  const mg   = parseFloat(lab.lab_mg);
+
+  // ดึงค่า Vitals
+  const sbp  = parseFloat(vit.sbp);
+  const temp = parseFloat(vit.temp);
+  const spo2 = parseFloat(vit.spo2);
+
+  // ดึง DTX ล่าสุด
+  const dtxArr = S.dtxLog || [];
+  const dtx = dtxArr.length ? dtxArr[dtxArr.length-1].value : NaN;
+
+  const found  = []; // likely cause
+  const possible = []; // possible cause
+
+  // ─── 6H ───────────────────────────────────────────
+
+  // H1: Hypoxia
+  if (!isNaN(po2) && po2 < 60)
+    found.push({ h:'H', name:'Hypoxia', evidence:`PaO₂ ${po2} mmHg (<60)`, action:'เพิ่ม FiO₂ 100%, ตรวจ ETT position, CXR' });
+  else if (!isNaN(spo2) && spo2 < 90)
+    found.push({ h:'H', name:'Hypoxia', evidence:`SpO₂ ${spo2}% ต่ำมาก`, action:'เพิ่ม O₂, พิจารณา intubation' });
+  else if (isNaN(po2) && isNaN(spo2))
+    possible.push({ h:'H', name:'Hypoxia', evidence:'ไม่มี PaO₂ / SpO₂', action:'ตรวจ ABG, SpO₂ monitor' });
+
+  // H2: Hypovolemia
+  if (!isNaN(hb) && hb < 7)
+    found.push({ h:'H', name:'Hypovolemia / Hemorrhage', evidence:`Hb ${hb} g/dL (<7)`, action:'pRBC, หาแหล่งเลือดออก, IV bolus' });
+  else if (!isNaN(sbp) && sbp < 90 && (!isNaN(lac) && lac > 4))
+    found.push({ h:'H', name:'Hypovolemia', evidence:`SBP ${sbp} + Lactate ${lac} mmol/L`, action:'IV fluid bolus NSS/LRS 500-1000mL' });
+  else if (!isNaN(sbp) && sbp < 90)
+    possible.push({ h:'H', name:'Hypovolemia', evidence:`SBP ${sbp} mmHg ต่ำ`, action:'IV fluid bolus, ประเมิน fluid status' });
+
+  // H3: H+ Acidosis
+  if (!isNaN(pH) && pH < 7.1) {
+    const isResp = !isNaN(pco2) && pco2 > 50;
+    const isMet  = !isNaN(hco3) && hco3 < 15;
+    found.push({
+      h:'H', name:'H⁺ Acidosis' + (isResp?' (Respiratory)':isMet?' (Metabolic)':''),
+      evidence:`pH ${pH}` + (!isNaN(pco2)?` | PaCO₂ ${pco2}`:'') + (!isNaN(hco3)?` | HCO₃ ${hco3}`:'') + (!isNaN(be)?` | BE ${be}`:''),
+      action: isResp ? 'แก้ airway/ventilation — เพิ่ม RR' : 'NaHCO₃ 1mEq/kg IV ถ้า pH <7.1 + แก้ underlying cause'
+    });
+  } else if (!isNaN(be) && be < -10)
+    found.push({ h:'H', name:'H⁺ Acidosis (Metabolic)', evidence:`Base Excess ${be} mEq/L (<-10)`, action:'NaHCO₃ 1mEq/kg IV, ตรวจ Anion Gap' });
+
+  // H4: Hypo/Hyperkalemia
+  if (!isNaN(k)) {
+    if (k > 6.5)
+      found.push({ h:'H', name:'Hyperkalemia', evidence:`K⁺ ${k} mEq/L (>6.5)`, action:'CaCl₂ 1g IV, NaHCO₃, D50+Insulin, Kayexalate' });
+    else if (k > 5.5)
+      possible.push({ h:'H', name:'Hyperkalemia', evidence:`K⁺ ${k} mEq/L (>5.5)`, action:'ติดตาม EKG, CaCl₂ พิจารณา' });
+    else if (k < 2.5)
+      found.push({ h:'H', name:'Hypokalemia (Severe)', evidence:`K⁺ ${k} mEq/L (<2.5)`, action:'KCl IV drip ช้า — monitor EKG continuous' });
+    else if (k < 3.5)
+      possible.push({ h:'H', name:'Hypokalemia', evidence:`K⁺ ${k} mEq/L (<3.5)`, action:'KCl supplement IV/PO' });
+  } else {
+    possible.push({ h:'H', name:'Hypo/Hyperkalemia', evidence:'ไม่มีค่า K⁺', action:'ตรวจ BMP/Electrolytes ด่วน' });
+  }
+
+  // H5: Hypothermia
+  if (!isNaN(temp) && temp < 30)
+    found.push({ h:'H', name:'Hypothermia (Severe)', evidence:`Temp ${temp}°C (<30)`, action:'Warm IV fluid, Warming blanket, Active rewarming' });
+  else if (!isNaN(temp) && temp < 35)
+    possible.push({ h:'H', name:'Hypothermia', evidence:`Temp ${temp}°C (<35)`, action:'Passive/Active warming' });
+  else if (isNaN(temp))
+    possible.push({ h:'H', name:'Hypothermia', evidence:'ไม่มีค่า Temp', action:'วัด core temperature' });
+
+  // H6: Hypoglycemia
+  if (!isNaN(dtx) && dtx < 60)
+    found.push({ h:'H', name:'Hypoglycemia', evidence:`DTX ${dtx} mg/dL (<60)`, action:'D50W 50mL IV bolus ทันที' });
+  else if (!isNaN(dtx) && dtx < 70)
+    possible.push({ h:'H', name:'Hypoglycemia', evidence:`DTX ${dtx} mg/dL (60-70)`, action:'D50W 25-50mL IV พิจารณา' });
+  else if (isNaN(dtx))
+    possible.push({ h:'H', name:'Hypoglycemia', evidence:'ไม่มีค่า DTX', action:'เจาะ DTX ทันที' });
+
+  // ─── 5T ───────────────────────────────────────────
+
+  // T1: Tension Pneumo — ไม่มี lab ที่บ่งชี้ชัด → ให้ possible ถ้า PEA
+  if (S.currentRhythm === 'PEA' || (S.rhythmHistory||[]).some(r=>r.rhythm==='PEA'))
+    possible.push({ h:'T', name:'Tension Pneumothorax', evidence:'Rhythm: PEA — exclude Tension Pneumo', action:'Needle decompression 2nd ICS MCL → chest tube' });
+
+  // T2: Tamponade — PEA + no lab
+  if (S.currentRhythm === 'PEA' || (S.rhythmHistory||[]).some(r=>r.rhythm==='PEA'))
+    possible.push({ h:'T', name:'Cardiac Tamponade', evidence:'Rhythm: PEA — exclude Tamponade', action:'Bedside Echo, Pericardiocentesis' });
+
+  // T3: Toxins
+  if (!isNaN(lac) && lac > 8)
+    found.push({ h:'T', name:'Toxin (CO / Cyanide / Biguanide)', evidence:`Lactate ${lac} mmol/L สูงมาก (>8)`, action:'พิจารณา CO poisoning, Cyanide, Metformin — antidote ตามชนิด' });
+  else if (!isNaN(be) && be < -10 && (!isNaN(lac) && lac > 4))
+    possible.push({ h:'T', name:'Toxin / Metabolic Poisoning', evidence:`BE ${be} + Lactate ${lac}`, action:'Anion gap, TCA, Salicylate, CO, Cyanide' });
+
+  // T4: Thrombosis PE
+  if (!isNaN(trop) && trop > 0.1 && S.currentRhythm !== 'STEMI')
+    possible.push({ h:'T', name:'Thrombosis — PE', evidence:`Troponin ${trop} (Elevated, ไม่ใช่ STEMI)`, action:'Echo ดู RV strain, CTPA ถ้า stable, tPA 50mg ถ้า arrest' });
+
+  // T5: Thrombosis MI / STEMI
+  if (!isNaN(trop) && trop > 0.04)
+    found.push({ h:'T', name:'Thrombosis — ACS/STEMI', evidence:`Troponin ${trop} สูง`, action:'12-lead EKG, Activate Cath Lab, tPA ถ้าไม่มี PCI' });
+
+  // Ca ต่ำ — เพิ่มเป็น note
+  if (!isNaN(ca) && ca < 1.0)
+    found.push({ h:'H', name:'Hypocalcemia', evidence:`iCa ${ca} mmol/L (<1.0)`, action:'CaCl₂ 1g IV slow push' });
+
+  // Mg ต่ำ
+  if (!isNaN(mg) && mg < 1.2)
+    possible.push({ h:'H', name:'Hypomagnesemia', evidence:`Mg²⁺ ${mg} mEq/L (<1.2)`, action:'MgSO₄ 2g IV / 10min' });
+
+  // ─── Render ─────────────────────────────────────
+  const resultEl = document.getElementById('htAnalysisResult');
+  const contentEl = document.getElementById('htAnalysisContent');
+  resultEl.style.display = '';
+
+  // สรุปแหล่งข้อมูลที่ใช้
+  const dataSrc = [];
+  if(Object.keys(lab).length) dataSrc.push('🧪 Lab/ABG');
+  if(Object.keys(vit).length) dataSrc.push('📊 Vital Signs');
+  if(dtxArr.length) dataSrc.push('🩸 DTX');
+  if(!dataSrc.length) dataSrc.push('⚠ ยังไม่มีข้อมูล');
+
+  let html = `<div style="font-size:10px;color:var(--muted);margin-bottom:8px">
+    ข้อมูลที่ใช้วิเคราะห์: ${dataSrc.join(' · ')}
+  </div>`;
+
+  if (!found.length && !possible.length) {
+    html += '<div style="color:#66bb6a;font-size:13px">✅ ไม่พบสาเหตุชัดเจนจากข้อมูลที่มี — กรอก Lab/DTX/Vitals เพิ่มเติม</div>';
+  } else {
+    if (found.length) {
+      html += `<div style="font-size:11px;font-weight:800;color:#ef9a9a;margin-bottom:6px">🔴 สาเหตุที่น่าจะเป็น (${found.length} รายการ)</div>`;
+      html += found.map(c => _htCauseCard(c, true)).join('');
+    }
+    if (possible.length) {
+      html += `<div style="font-size:11px;font-weight:800;color:#ffd54f;margin:8px 0 6px">🟡 สาเหตุที่ควร Exclude (${possible.length} รายการ)</div>`;
+      html += possible.map(c => _htCauseCard(c, false)).join('');
+    }
+  }
+
+  html += `<div style="margin-top:10px">
+    <button onclick="autoSelectHTCauses()" style="width:100%;padding:8px;border-radius:7px;
+      border:1px solid rgba(217,48,37,.5);background:rgba(217,48,37,.15);color:#ef9a9a;
+      font-family:'Sarabun',sans-serif;font-size:12px;font-weight:700;cursor:pointer">
+      ✅ เลือก H&T ที่น่าจะเป็นอัตโนมัติ
+    </button>
+  </div>`;
+
+  contentEl.innerHTML = html;
+  resultEl.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  toast('🤖 วิเคราะห์สาเหตุเสร็จ', 'green');
+}
+
+function _htCauseCard(c, isStrong) {
+  const isH = c.h === 'H';
+  const bg  = isH ? 'rgba(217,48,37,.1)'  : 'rgba(123,47,190,.1)';
+  const bc  = isH ? 'rgba(217,48,37,.35)' : 'rgba(123,47,190,.35)';
+  const col = isH ? '#ef9a9a' : '#ce93d8';
+  const badgeBg = isH ? '#c62828' : '#6a1b9a';
+  const opacity = isStrong ? '1' : '.75';
+  return `<div style="background:${bg};border:1px solid ${bc};border-radius:7px;padding:8px 10px;margin-bottom:6px;opacity:${opacity}">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+      <span style="background:${badgeBg};color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px">${c.h}</span>
+      <span style="font-weight:800;color:var(--text);font-size:13px">${c.name}</span>
+      ${isStrong ? '<span style="font-size:9px;background:rgba(217,48,37,.3);color:#ef9a9a;padding:1px 6px;border-radius:3px;font-weight:700">LIKELY</span>' : '<span style="font-size:9px;background:rgba(255,213,0,.2);color:#ffd54f;padding:1px 6px;border-radius:3px;font-weight:700">EXCLUDE</span>'}
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:3px">📊 ${c.evidence}</div>
+    <div style="font-size:11px;color:${col}">💊 ${c.action}</div>
+  </div>`;
+}
+
+function autoSelectHTCauses() {
+  // วิเคราะห์ก่อนแล้ว auto-select ปุ่ม H&T
+  const lab = S.labValues || {};
+  const vit = S.vitals   || {};
+  const pH  = parseFloat(lab.lab_pH);
+  const po2 = parseFloat(lab.lab_po2);
+  const be  = parseFloat(lab.lab_be);
+  const k   = parseFloat(lab.lab_k);
+  const hb  = parseFloat(lab.lab_hb);
+  const lac = parseFloat(lab.lab_lac);
+  const trop= parseFloat(lab.lab_trop);
+  const temp= parseFloat(vit.temp);
+  const sbp = parseFloat(vit.sbp);
+  const spo2= parseFloat(vit.spo2);
+  const dtxArr = S.dtxLog || [];
+  const dtx = dtxArr.length ? dtxArr[dtxArr.length-1].value : NaN;
+
+  const toSelect = new Set();
+  if ((!isNaN(po2)&&po2<60)||(!isNaN(spo2)&&spo2<90))  toSelect.add('Hypoxia');
+  if ((!isNaN(hb)&&hb<7)||(!isNaN(sbp)&&sbp<90))       toSelect.add('Hypovolemia');
+  if ((!isNaN(pH)&&pH<7.1)||(!isNaN(be)&&be<-10))       toSelect.add('H+ Acidosis');
+  if (!isNaN(k)&&(k>5.5||k<3.5))                        toSelect.add('Hypo/Hyperkalemia');
+  if (!isNaN(temp)&&temp<35)                             toSelect.add('Hypothermia');
+  if (!isNaN(dtx)&&dtx<70)                              toSelect.add('Hypoglycemia');
+  if (!isNaN(trop)&&trop>0.04)                          toSelect.add('Thrombosis MI');
+  if (!isNaN(lac)&&lac>8)                               toSelect.add('Toxins');
+
+  document.querySelectorAll('.ht-btn').forEach(btn => {
+    const cause = btn.dataset.cause;
+    if (toSelect.has(cause)) btn.classList.add('selected');
+  });
+  updateHTSummary();
+  toast('✅ เลือก H&T จาก Data แล้ว ' + toSelect.size + ' รายการ', 'green');
+}
 function restoreHTSelection(){document.querySelectorAll('.ht-btn').forEach(b=>{b.classList.toggle('selected',S.htCauses&&S.htCauses.includes(b.dataset.cause));});updateHTSummary();}
 function updateHTSummary(){
   const selected=Array.from(document.querySelectorAll('.ht-btn.selected')).map(b=>b.dataset.cause);S.htCauses=selected;
@@ -3195,6 +3636,10 @@ function newCase(){
 }
 
 function saveToSheet(){
+  // ต้องใส่ PIN ก่อนบันทึก
+  openSheetPIN('save');
+}
+function _doSaveToSheet(){
   const genderTH = S.gender === 'male' ? 'ชาย' : 'หญิง';
   const data={patientName:genderTH+' อายุ '+S.age+' ปี',age:S.age,weight:S.weight,bed:S.bed,initialRhythm:S.rhythmHistory.length?S.rhythmHistory[0].rhythm:'',finalRhythm:S.currentRhythm||'',rosc:S.roscTime?'Yes':'No',roscTime:S.roscTime||'',totalCPRmin:Math.round(S.totalSec/60),shockCount:S.shockCount,epiCount:S.epiCount,amiCount:S.amioCount,intubated:S.intubated?'Yes':'No',outcome:document.getElementById('sumOutcome')?.value||'',notes:document.getElementById('sumNotes')?.value||'',htCauses:(S.htCauses||[]).join(', ')};
   if(!GAS_URL||GAS_URL==='YOUR_GAS_WEB_APP_URL_HERE'){toast('(Dev) บันทึก — ตั้ง GAS_URL ก่อน','green');return;}
@@ -3224,14 +3669,28 @@ function exportImage(){
 // ══════════════════════════════════════════
 //  PIN MODAL — Google Sheet (PIN: 952)
 // ══════════════════════════════════════════
-const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1mh_VxRhSjkAOzGPe3J3mZ4gRpJqLYhJb3tQH-0K1234/edit';
+const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1feUBfVmLMgi6SCWPg3VAWH95ONysY1bUDom5cCllqwE/edit?usp=sharing';
 const SHEET_PIN = '952';
 let _pin = '';
+let _pinMode = 'view'; // 'view' | 'save'
 
-function openSheetPIN() {
+function openSheetPIN(mode) {
+  _pinMode = mode || 'view';
   _pin = '';
   _pinRender();
   document.getElementById('pinErr').textContent = '';
+
+  // อัพเดต title/subtitle ตาม mode
+  const titleEl = document.getElementById('pinModalTitle');
+  const subEl   = document.getElementById('pinModalSub');
+  if (_pinMode === 'save') {
+    if (titleEl) titleEl.textContent = '🔒 ยืนยันการบันทึก';
+    if (subEl)   subEl.textContent   = 'ใส่รหัสเพื่อบันทึกข้อมูลลง Google Sheet';
+  } else {
+    if (titleEl) titleEl.textContent = '🔒 ใส่รหัสผ่าน';
+    if (subEl)   subEl.textContent   = 'เพื่อเข้าดูข้อมูลใน Google Sheet';
+  }
+
   const m = document.getElementById('pinModal');
   m.style.display = 'flex';
   document.body.style.overflow = 'hidden';
@@ -3266,10 +3725,13 @@ function _pinRender() {
 function _pinCheck() {
   if (_pin === SHEET_PIN) {
     closePINModal();
-    window.open(SHEET_URL, '_blank');
-    toast('✅ เปิด Google Sheet แล้ว', 'green');
+    if (_pinMode === 'save') {
+      _doSaveToSheet();
+    } else {
+      window.open(SHEET_URL, '_blank');
+      toast('✅ เปิด Google Sheet แล้ว', 'green');
+    }
   } else {
-    // shake + red
     for (let i = 0; i < SHEET_PIN.length; i++) {
       const d = document.getElementById('pd' + i);
       if (d) {
@@ -3386,34 +3848,72 @@ async function ekgm_analyze(){
 
 function ekgm_showResult(r){
   const card=document.getElementById('ekgm_result');card.style.display='block';card.scrollIntoView({behavior:'smooth',block:'start'});
-  const badge=document.getElementById('ekgm_badge');badge.textContent=r.rhythm||'—';
-  const cm={'VF':{bg:'rgba(182,107,255,.2)',bd:'rgba(182,107,255,.6)',c:'#d4a7ff'},'pVT':{bg:'rgba(182,107,255,.2)',bd:'rgba(182,107,255,.6)',c:'#d4a7ff'},'Asystole':{bg:'rgba(255,59,92,.2)',bd:'rgba(255,59,92,.6)',c:'#ff8099'},'PEA':{bg:'rgba(255,59,92,.2)',bd:'rgba(255,59,92,.6)',c:'#ff8099'},'NSR':{bg:'rgba(0,229,160,.15)',bd:'rgba(0,229,160,.5)',c:'#00e5a0'},'AF':{bg:'rgba(255,179,0,.15)',bd:'rgba(255,179,0,.5)',c:'#ffb300'},'SVT':{bg:'rgba(255,179,0,.15)',bd:'rgba(255,179,0,.5)',c:'#ffcc40'},'SinusBrady':{bg:'rgba(255,179,0,.12)',bd:'rgba(255,179,0,.45)',c:'#ffcc40'},'STEMI':{bg:'rgba(255,59,92,.15)',bd:'rgba(255,59,92,.5)',c:'#ff5577'}};
-  const cv=cm[r.rhythm]||{bg:'rgba(255,179,0,.15)',bd:'rgba(255,179,0,.5)',c:'#ffcc40'};badge.style.cssText=`background:${cv.bg};border:2px solid ${cv.bd};color:${cv.c}`;
-  document.getElementById('ekgm_resultHdr').style.background=r.shockable?'rgba(182,107,255,.06)':'rgba(255,59,92,.04)';
+
+  // ── ถ้า Gemini วิเคราะห์ได้ NSR/Normal Sinus → แสดงเป็น PEA (NSR) เพราะใช้ในกรณีไม่มีชีพจรเท่านั้น ──
+  const rawRhythm = r.acls_rhythm_key || r.rhythm || '';
+  const isNSR = ['NSR','Normal Sinus','Sinus Rhythm','Normal Sinus Rhythm'].some(k => rawRhythm.toLowerCase().includes(k.toLowerCase()));
+  const displayRhythm = isNSR ? 'PEA (NSR)' : r.rhythm;
+  const applyKey = isNSR ? 'PEA' : rawRhythm;
+
+  const badge=document.getElementById('ekgm_badge');badge.textContent=displayRhythm||'—';
+  const cm={'VF':{bg:'rgba(182,107,255,.2)',bd:'rgba(182,107,255,.6)',c:'#d4a7ff'},'pVT':{bg:'rgba(182,107,255,.2)',bd:'rgba(182,107,255,.6)',c:'#d4a7ff'},'Asystole':{bg:'rgba(255,59,92,.2)',bd:'rgba(255,59,92,.6)',c:'#ff8099'},'PEA':{bg:'rgba(255,59,92,.2)',bd:'rgba(255,59,92,.6)',c:'#ff8099'},'NSR':{bg:'rgba(255,59,92,.18)',bd:'rgba(255,59,92,.55)',c:'#ff8099'},'AF':{bg:'rgba(255,179,0,.15)',bd:'rgba(255,179,0,.5)',c:'#ffb300'},'SVT':{bg:'rgba(255,179,0,.15)',bd:'rgba(255,179,0,.5)',c:'#ffcc40'},'SinusBrady':{bg:'rgba(255,179,0,.12)',bd:'rgba(255,179,0,.45)',c:'#ffcc40'},'STEMI':{bg:'rgba(255,59,92,.15)',bd:'rgba(255,59,92,.5)',c:'#ff5577'}};
+  const cv=cm[isNSR?'PEA':r.rhythm]||{bg:'rgba(255,179,0,.15)',bd:'rgba(255,179,0,.5)',c:'#ffcc40'};badge.style.cssText=`background:${cv.bg};border:2px solid ${cv.bd};color:${cv.c}`;
+  document.getElementById('ekgm_resultHdr').style.background='rgba(255,59,92,.04)';
   const conf=r.confidence||0,ct=document.getElementById('ekgm_confTxt'),cb=document.getElementById('ekgm_confBar');ct.textContent=conf+'%';ct.style.color=conf>=80?'#00e5a0':conf>=60?'#ffb300':'#ff5577';cb.style.width=conf+'%';cb.style.background=conf>=80?'#00e5a0':conf>=60?'#ffb300':'#ff5577';
   document.getElementById('ekgm_time').textContent=new Date().toLocaleTimeString('th-TH');
-  const chipClass={'VF':'vf','pVT':'vf','Asystole':'asys','PEA':'asys','NSR':'nsr'}[r.rhythm]||'warn';
-  document.getElementById('ekgm_chips').innerHTML=`<span class="ekgm-chip ekgm-chip-${chipClass}">${r.rhythm}</span>`+(r.shockable===true?'<span class="ekgm-chip ekgm-chip-vf">⚡ Shockable</span>':r.shockable===false?'<span class="ekgm-chip ekgm-chip-asys">🚫 Non-Shockable</span>':'')+(r.rate?`<span class="ekgm-chip ekgm-chip-warn">⏱ ${r.rate}</span>`:'')+(r.image_quality==='poor'?'<span class="ekgm-chip ekgm-chip-asys">⚠ รูปต่ำ</span>':'');
-  const canApply=['VF','pVT','Asystole','PEA'].includes(r.acls_rhythm_key||r.rhythm);document.getElementById('ekgm_applySection').style.display=canApply?'':'none';
-  if(canApply){const rKey=r.acls_rhythm_key||r.rhythm;const applyBtn=document.getElementById('ekgm_applyBtn');const colorMap={'VF':'rgba(182,107,255,.25)','pVT':'rgba(182,107,255,.25)','Asystole':'rgba(255,59,92,.2)','PEA':'rgba(255,59,92,.2)'};applyBtn.style.background=colorMap[rKey]||'rgba(0,212,255,.15)';applyBtn.textContent=`✅ ใช้ผลนี้ใน ACLS — เลือก ${rKey} อัตโนมัติ`;}
-  document.getElementById('ekgm_findings').textContent=r.findings||'—';
-  const abox=document.getElementById('ekgm_algo');abox.className='ekgm-algo '+(r.shockable?'shock':r.rhythm==='NSR'?'normal':['AF','SVT','SinusBrady','VTwithPulse','STEMI'].includes(r.rhythm)?'other':'noshock');abox.innerHTML=(r.acls_steps||[]).map((s,i)=>`<div class="ekgm-algo-step"><div class="ekgm-algo-num">${i+1}</div><div style="flex:1">${s}</div></div>`).join('');
-  const acolor=r.shockable?'#d4a7ff':r.rhythm==='NSR'?'#00e5a0':'#ff7a8a';document.getElementById('ekgm_action').innerHTML=`<div style="font-size:14px;font-weight:700;color:${acolor};line-height:1.7">${r.immediate_action||'—'}</div>`+(r.caution?`<div style="margin-top:7px;background:rgba(255,179,0,.1);border:1px solid rgba(255,179,0,.3);border-radius:6px;padding:7px 10px;font-size:11px;color:#ffcc60;">⚠️ ${r.caution}</div>`:'');
-  toast('✅ วิเคราะห์เสร็จ: '+r.rhythm,'green');
+
+  const chipClass=isNSR?'asys':({'VF':'vf','pVT':'vf','Asystole':'asys','PEA':'asys'}[r.rhythm]||'warn');
+  document.getElementById('ekgm_chips').innerHTML=
+    `<span class="ekgm-chip ekgm-chip-${chipClass}">${displayRhythm}</span>`+
+    (isNSR?'<span class="ekgm-chip ekgm-chip-asys">🚫 Non-Shockable (PEA)</span>':
+      r.shockable===true?'<span class="ekgm-chip ekgm-chip-vf">⚡ Shockable</span>':
+      r.shockable===false?'<span class="ekgm-chip ekgm-chip-asys">🚫 Non-Shockable</span>':'')+
+    (r.rate?`<span class="ekgm-chip ekgm-chip-warn">⏱ ${r.rate}</span>`:'')+
+    (r.image_quality==='poor'?'<span class="ekgm-chip ekgm-chip-asys">⚠ รูปต่ำ</span>':'');
+
+  // canApply: VF, pVT, Asystole, PEA, และ NSR (map→PEA)
+  const canApply=['VF','pVT','Asystole','PEA'].includes(applyKey);
+  document.getElementById('ekgm_applySection').style.display=canApply?'':'none';
+  if(canApply){
+    const applyBtn=document.getElementById('ekgm_applyBtn');
+    const colorMap={'VF':'rgba(182,107,255,.25)','pVT':'rgba(182,107,255,.25)','Asystole':'rgba(255,59,92,.2)','PEA':'rgba(255,59,92,.2)'};
+    applyBtn.style.background=colorMap[applyKey]||'rgba(255,59,92,.2)';
+    applyBtn.textContent=isNSR
+      ? `✅ ใช้ผลนี้ใน ACLS — เลือก PEA (NSR) อัตโนมัติ`
+      : `✅ ใช้ผลนี้ใน ACLS — เลือก ${applyKey} อัตโนมัติ`;
+    // เก็บ applyKey ไว้ใช้ตอน apply
+    applyBtn.dataset.applyKey = applyKey;
+  }
+
+  document.getElementById('ekgm_findings').textContent=
+    (isNSR ? '⚠ พบ Organized rhythm (NSR) — ในกรณีไม่มีชีพจร = PEA\n' : '') + (r.findings||'—');
+
+  const abox=document.getElementById('ekgm_algo');
+  abox.className='ekgm-algo noshock';
+  abox.innerHTML=(r.acls_steps||[]).map((s,i)=>`<div class="ekgm-algo-step"><div class="ekgm-algo-num">${i+1}</div><div style="flex:1">${s}</div></div>`).join('');
+
+  const actionColor='#ff7a8a';
+  document.getElementById('ekgm_action').innerHTML=
+    (isNSR?'<div style="font-size:13px;font-weight:700;color:#ffb300;margin-bottom:6px;padding:6px 10px;background:rgba(255,179,0,.1);border:1px solid rgba(255,179,0,.3);border-radius:6px;">⚠ AI พบ NSR — คลื่นมี Organize แต่ไม่มีชีพจร = <b>PEA</b><br>ทำ CPR ต่อ | หา Reversible Cause (6H 5T)</div>':'') +
+    `<div style="font-size:14px;font-weight:700;color:${actionColor};line-height:1.7">${r.immediate_action||'—'}</div>`+
+    (r.caution?`<div style="margin-top:7px;background:rgba(255,179,0,.1);border:1px solid rgba(255,179,0,.3);border-radius:6px;padding:7px 10px;font-size:11px;color:#ffcc60;">⚠️ ${r.caution}</div>`:'');
+
+  // เก็บ result พร้อม applyKey ที่ถูกต้อง
+  ekgm_lastResult = {...r, _applyKey: applyKey};
+  toast('✅ วิเคราะห์เสร็จ: '+displayRhythm,'green');
 }
 
 function ekgm_applyRhythm(){
-  if(!ekgm_lastResult)return;const rKey=ekgm_lastResult.acls_rhythm_key||ekgm_lastResult.rhythm;
+  if(!ekgm_lastResult)return;
+  const rKey = ekgm_lastResult._applyKey || ekgm_lastResult.acls_rhythm_key || ekgm_lastResult.rhythm;
   closeEKGModal();
   setTimeout(()=>{
-    // ค้นหาปุ่ม rhythm จริงด้วย selector ที่ถูกต้อง (มี ) ปิดวงเล็บ)
     const selector=`[onclick*="selectRhythm('${rKey}')"]`;
     const btn=document.querySelector(selector);
     if(btn){
       btn.click();
       toast('✅ เลือก '+rKey+' จาก AI แล้ว','green');
     } else if(typeof selectRhythm==='function'){
-      // fallback: เรียกตรงแต่ส่ง real DOM button ถ้าหาเจอ หรือสร้าง dummy ที่มี classList
       const allBtns=document.querySelectorAll('.rh-btn');
       let realBtn=null;
       allBtns.forEach(b=>{if((b.getAttribute('onclick')||'').includes("'"+rKey+"'"))realBtn=b;});
@@ -3426,11 +3926,32 @@ function ekgm_applyRhythm(){
 }
 window.ekgm_applyRhythm=ekgm_applyRhythm;
 
-// ── INIT ──
+// ── INIT — reset ทุกอย่างเมื่อโหลดหน้า ──
 (function init(){
+  // reset S state ให้สะอาด
+  S = {
+    gender:'', age:'', weight:'', bed:'ศอช.10', startTime:null,
+    totalSec:0, totalInterval:null, cprRemain:120, cprInterval:null, cprCycles:1,
+    cprHistory:[], epiRemain:0, epiInterval:null, epiCount:0, epiHistory:[],
+    shockCount:0, shockHistory:[], amioCount:0,
+    currentRhythm:null, algoRunCycle:0, currentStepIdx:0,
+    rhythmHistory:[], timeline:[], drugs:[],
+    dtxLog:[], htCauses:[], intubated:false, roscTime:null,
+    vitals:{}, roscCheckState:{}, fluids:[], labValues:{}
+  };
+  PS = { rhythm:null, stepIdx:0, stability:null };
+  pedsMode_flag = false;
+
+  // reset screen
   document.querySelectorAll('.screen').forEach(s=>{s.classList.remove('active');s.style.display='none';});
-  const start=document.getElementById('startScreen');start.classList.add('active');start.style.display='flex';
-  if(localStorage.getItem('acls_theme')==='light'){document.body.classList.add('light');['themeBtn','themeToggleBtn'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='☀️';});}
+  const start=document.getElementById('startScreen');
+  if(start){start.classList.add('active');start.style.display='flex';}
+
+  // theme
+  if(localStorage.getItem('acls_theme')==='light'){
+    document.body.classList.add('light');
+    ['themeBtn','themeToggleBtn'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='☀️';});
+  }
 })();
 </script>
 </body>
