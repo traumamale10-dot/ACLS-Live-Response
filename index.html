@@ -1273,11 +1273,12 @@ body.light .vs-input{background:#fff;border-color:var(--border);color:var(--text
             <div class="ekgm-rsec-title">Rhythm Classification</div>
             <div class="ekgm-chips" id="ekgm_chips"></div>
           </div>
-          <div id="ekgm_applySection" style="display:none;margin-bottom:12px;">
+          <div id="ekgm_applySection" style="display:none;margin-bottom:14px;text-align:center;">
             <button id="ekgm_applyBtn" onclick="ekgm_applyRhythm()"
-              style="width:100%;padding:11px;border-radius:9px;
-              background:rgba(0,212,255,.15);border:1px solid rgba(0,212,255,.45);color:#00d4ff;
-              font-family:'Sarabun',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">
+              style="width:100%;padding:18px 16px;border-radius:12px;
+              background:rgba(0,212,255,.15);border:2px solid rgba(0,212,255,.6);color:#00d4ff;
+              font-family:'Sarabun',sans-serif;font-size:17px;font-weight:800;cursor:pointer;
+              letter-spacing:.3px;animation:badge-pulse 1.6s ease-in-out infinite;">
               ✅ ใช้ผลนี้ใน ACLS — เลือก Rhythm อัตโนมัติ
             </button>
           </div>
@@ -3865,40 +3866,81 @@ async function ekgm_analyze(hasPulse){
     document.getElementById('ekgm_loadTxt').textContent='🤖 ส่งไป Apps Script proxy...';
     if(!compressedB64){ throw new Error('compress ล้มเหลว — รูปไม่ถูกต้อง'); }
 
-    // ถ้าคลำไม่ได้ → PEA ทันที ไม่ต้องส่ง AI
+    // ถ้าคลำไม่ได้ → ส่ง AI ดู pattern ก่อน แล้วตัดสินใจ
     if(hasPulse === false){
+      document.getElementById('ekgm_loadTxt').textContent='🤖 ส่งไป GAS proxy...';
+      const gasRes = await gasCall('callGemini', {imageBase64: compressedB64, hasPulse: false});
       clearInterval(mi_int);
       document.getElementById('ekgm_loading').classList.remove('show');
       document.getElementById('ekgm_analyzeBtn').disabled=false;
       document.getElementById('ekgm_spinner').style.display='none';
       document.getElementById('ekgm_analyzeTxt').textContent='🤖 วิเคราะห์ Rhythm ด้วย AI (Gemini)';
-      // สร้าง PEA result พร้อม AI วิเคราะห์ rhythm เพิ่มเติม
-      document.getElementById('ekgm_loadTxt').textContent='🤖 ส่งไป GAS proxy...';
-      document.getElementById('ekgm_loading').classList.add('show');
-      const gasRes = await gasCall('callGemini', {imageBase64: compressedB64, hasPulse: false});
-      document.getElementById('ekgm_loading').classList.remove('show');
       const aiResult = typeof gasRes === 'string' ? JSON.parse(gasRes) : gasRes;
-      // บังคับเป็น PEA ไม่ว่า AI จะวิเคราะห์ rhythm ว่าอะไร
-      const peaResult = {
-        ...aiResult,
-        rhythm: 'PEA — ' + (aiResult.rhythm || 'Organized Rhythm'),
-        pulseless: true,
-        shockable: false,
-        acls_rhythm_key: 'PEA',
-        immediate_action: 'ไม่มีชีพจร (คลำไม่ได้) — เริ่ม CPR ทันที + Epinephrine 1mg IV q3-5min + หาสาเหตุ H&T',
-        acls_steps: [
+      const aiRhythm = (aiResult.rhythm||'').toLowerCase();
+
+      // ตรวจว่า AI เห็น VF หรือ VT (shockable) → ใช้ pVT/VF ไม่ใช่ PEA
+      const isVF  = aiRhythm.includes('ventricular fibrillation') || aiRhythm.includes(' vf') || aiRhythm.startsWith('vf');
+      const isVT  = aiRhythm.includes('ventricular tachycardia') || aiRhythm.includes(' vt') || aiRhythm.includes('wide complex');
+      const isAsystole = aiRhythm.includes('asystole') || aiRhythm.includes('flatline');
+
+      let finalKey, finalRhythm, finalShockable, finalSteps, finalAction, timelineMsg;
+
+      if(isVF || (isVT && !aiRhythm.includes('with pulse'))){
+        // VT/VF ไม่มีชีพจร = pVT หรือ VF → Shockable
+        finalKey = isVF ? 'VF' : 'pVT';
+        finalRhythm = isVF ? 'VF — คลำไม่ได้' : 'pVT — Pulseless VT';
+        finalShockable = true;
+        finalSteps = [
+          'CPR คุณภาพสูงทันที',
+          'Defibrillate ทันที — 200J Biphasic (Shock ก่อน!)',
+          'CPR ต่อเนื่อง 2 นาทีหลัง Shock',
+          'Epinephrine 1mg IV/IO ทุก 3-5 นาที (หลัง Shock ครั้งที่ 2)',
+          'Amiodarone 300mg IV หลัง Shock ครั้งที่ 3',
+        ];
+        finalAction = '⚡ SHOCKABLE — Defibrillate ทันที 200J!';
+        timelineMsg = '⚡ '+finalKey+' — คลำไม่ได้ | EKG: '+(aiResult.rhythm||'?');
+      } else if(isAsystole){
+        finalKey = 'Asystole';
+        finalRhythm = 'Asystole — คลำไม่ได้';
+        finalShockable = false;
+        finalSteps = [
+          'CPR คุณภาพสูงทันที',
+          'Epinephrine 1mg IV/IO ทุก 3-5 นาที',
+          'หาสาเหตุ H&T',
+          'ยืนยัน lead ถูกต้อง ไม่ใช่ loose electrode',
+        ];
+        finalAction = '🚫 Non-Shockable — CPR + Epi ทันที';
+        timelineMsg = '❌ Asystole — คลำไม่ได้';
+      } else {
+        // Organized rhythm ไม่มีชีพจร = PEA
+        finalKey = 'PEA';
+        finalRhythm = 'PEA — ' + (aiResult.rhythm || 'Organized Rhythm');
+        finalShockable = false;
+        finalSteps = [
           'CPR คุณภาพสูงทันที — กด 100-120 ครั้ง/นาที ลึก 2-2.4 นิ้ว',
           'Epinephrine 1mg IV/IO ทุก 3-5 นาที',
           'หาสาเหตุ H&T — Hypoxia, Hypovolemia, H⁺, K⁺, Hypothermia, Hypoglycemia',
           'T: Tension Pneumo, Tamponade, Toxin, Thrombosis PE/MI',
-          'EKG pattern: ' + (aiResult.rhythm || '?') + ' → พิจารณา TCP ถ้า Organized rhythm'
-        ],
+          'EKG pattern: '+(aiResult.rhythm||'?')+' → พิจารณา TCP ถ้า Organized rhythm',
+        ];
+        finalAction = '🚫 Non-Shockable (PEA) — CPR + Epi + หา H&T ทันที';
+        timelineMsg = '❌ PEA — คลำไม่ได้ | EKG: '+(aiResult.rhythm||'?');
+      }
+
+      const finalResult = {
+        ...aiResult,
+        rhythm: finalRhythm,
+        pulseless: true,
+        shockable: finalShockable,
+        acls_rhythm_key: finalKey,
+        immediate_action: finalAction,
+        acls_steps: finalSteps,
         _pulseOverride: true,
         _originalRhythm: aiResult.rhythm
       };
-      ekgm_lastResult = peaResult;
-      ekgm_showResult(peaResult);
-      addTimeline('❌ PEA — คลำชีพจรไม่ได้ | EKG: ' + (aiResult.rhythm||'?'), 'rhythm');
+      ekgm_lastResult = finalResult;
+      ekgm_showResult(finalResult);
+      addTimeline(timelineMsg, 'rhythm');
       return;
     }
 
@@ -3991,7 +4033,7 @@ function ekgm_showResult(r){
   const applyBtn=document.getElementById('ekgm_applyBtn');
   if(showPulseButton){
     applySection.style.display='';
-    applyBtn.style.cssText='width:100%;padding:12px;border-radius:9px;font-size:14px;font-weight:800;cursor:pointer;font-family:Sarabun,sans-serif;background:rgba(24,128,56,.25);border:2px solid rgba(24,128,56,.6);color:#81c784';
+    applyBtn.style.cssText='width:100%;padding:18px 16px;border-radius:12px;font-size:17px;font-weight:800;cursor:pointer;font-family:Sarabun,sans-serif;letter-spacing:.3px;animation:badge-pulse 1.6s ease-in-out infinite;background:rgba(24,128,56,.25);border:2px solid rgba(24,128,56,.6);color:#81c784';
     if(pulseButUnknown){
       applyBtn.innerHTML='💚 มีชีพจร → ไปหน้า Rhythm ดูแลต่อ (เลือก Rhythm เอง)';
     } else {
@@ -4003,8 +4045,11 @@ function ekgm_showResult(r){
     const canApply=['VF','pVT','Asystole','PEA'].includes(applyKey);
     applySection.style.display=canApply?'':'none';
     if(canApply){
-      applyBtn.style.cssText='';
-      applyBtn.style.background=({'VF':'rgba(182,107,255,.25)','pVT':'rgba(182,107,255,.25)','Asystole':'rgba(255,59,92,.2)','PEA':'rgba(255,59,92,.2)'}[applyKey]||'rgba(255,59,92,.2)');
+      const bgMap={'VF':'rgba(182,107,255,.25)','pVT':'rgba(182,107,255,.25)','Asystole':'rgba(255,59,92,.2)','PEA':'rgba(255,59,92,.2)'};
+      const bdMap={'VF':'rgba(182,107,255,.6)','pVT':'rgba(182,107,255,.6)','Asystole':'rgba(255,59,92,.5)','PEA':'rgba(255,59,92,.5)'};
+      const colMap={'VF':'#d4a7ff','pVT':'#d4a7ff','Asystole':'#ff8099','PEA':'#ff8099'};
+      applyBtn.style.cssText='width:100%;padding:18px 16px;border-radius:12px;font-size:17px;font-weight:800;cursor:pointer;font-family:Sarabun,sans-serif;letter-spacing:.3px;animation:badge-pulse 1.6s ease-in-out infinite;' +
+        'background:'+(bgMap[applyKey]||'rgba(255,59,92,.2)')+';border:2px solid '+(bdMap[applyKey]||'rgba(255,59,92,.5)')+';color:'+(colMap[applyKey]||'#ff8099')+';';
       applyBtn.innerHTML=isNSR?'✅ ใช้ผลนี้ใน ACLS — เลือก PEA (NSR) อัตโนมัติ':'✅ ใช้ผลนี้ใน ACLS — เลือก '+applyKey+' อัตโนมัติ';
       applyBtn.dataset.pulseMode='false';
       applyBtn.dataset.applyKey=applyKey;
