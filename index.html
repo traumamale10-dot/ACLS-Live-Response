@@ -3928,94 +3928,95 @@ async function ekgm_analyze(hasPulse){
 function ekgm_showResult(r){
   const card=document.getElementById('ekgm_result');card.style.display='block';card.scrollIntoView({behavior:'smooth',block:'start'});
 
-  const hasPulse = r.pulseless === false || (r._pulseOverride !== true && r.acls_rhythm_key === null && !['VF','pVT','Asystole','PEA'].includes(r.acls_rhythm_key));
-  const isPulseRhythm = r.pulseless === false || (!r.shockable && !['VF','pVT','Asystole','PEA'].includes(r.acls_rhythm_key) && r.acls_rhythm_key === null);
+  // PULSE_MAP: keyword → pulseAlgoKey (lowercase match)
+  const PULSE_MAP=[
+    ['supraventricular tachycardia','SVT'],['narrow complex tachycardia','SVT'],['svt','SVT'],
+    ['atrial fibrillation','AF'],['atrial flutter','AF'],['af/flutter','AF'],
+    ['sinus bradycardia','SinusBrady'],['sinus brady','SinusBrady'],['bradycardia','SinusBrady'],
+    ['3rd degree','AVBlock'],['third degree','AVBlock'],['complete heart block','AVBlock'],
+    ['complete av block','AVBlock'],['2nd degree','AVBlock'],['second degree','AVBlock'],
+    ['1st degree','AVBlock'],['first degree','AVBlock'],['av block','AVBlock'],
+    ['heart block','AVBlock'],['wenckebach','AVBlock'],['mobitz','AVBlock'],
+    ['atrioventricular block','AVBlock'],
+    ['vt with pulse','VT_pulse'],['ventricular tachycardia with pulse','VT_pulse'],
+    ['ventricular tachycardia','VT_pulse'],['wide complex tachycardia','VT_pulse'],
+    ['monomorphic vt','VT_pulse'],['monomorphic ventricular','VT_pulse'],
+    ['wide qrs tachycardia','VT_pulse'],[' vt ','VT_pulse'],
+    ['stemi','STEMI'],['st elevation mi','STEMI'],['st-elevation','STEMI'],['st elevation','STEMI'],
+  ];
+  const rawRhythm=(r.rhythm||'').toLowerCase();
+  let pulseAlgoKey=null;
+  for(const [kw,key] of PULSE_MAP){ if(rawRhythm.includes(kw)){pulseAlgoKey=key;break;} }
 
-  // map AI rhythm → pulse algo key
-  const PULSE_MAP = {
-    'SVT':'SVT','Supraventricular Tachycardia':'SVT',
-    'AF':'AF','Atrial Fibrillation':'AF','Atrial Flutter':'AF','AF/Flutter':'AF',
-    'Sinus Bradycardia':'SinusBrady','Sinus Brady':'SinusBrady',
-    'AV Block':'AVBlock','1st Degree AV Block':'AVBlock','2nd Degree AV Block':'AVBlock',
-    '3rd Degree AV Block':'AVBlock','Complete AV Block':'AVBlock','Complete Heart Block':'AVBlock',
-    'VT with Pulse':'VT_pulse','Ventricular Tachycardia with Pulse':'VT_pulse',
-    'STEMI':'STEMI','ST Elevation MI':'STEMI'
-  };
+  // ตัดสินใจ: มีชีพจรหรือไม่
+  const isDefinitelyPulseless=r._pulseOverride===true||['VF','pVT','Asystole','PEA'].includes(r.acls_rhythm_key);
+  const showPulseButton=!!pulseAlgoKey && !isDefinitelyPulseless;
 
-  // หา pulseAlgoKey จาก rhythm
-  const rawRhythm = r.rhythm || '';
-  let pulseAlgoKey = null;
-  for(const [k,v] of Object.entries(PULSE_MAP)){
-    if(rawRhythm.toLowerCase().includes(k.toLowerCase())){ pulseAlgoKey = v; break; }
-  }
+  // NSR edge case
+  const isNSR=!showPulseButton&&!isDefinitelyPulseless&&['nsr','normal sinus','sinus rhythm'].some(k=>rawRhythm.includes(k));
+  const displayRhythm=r._pulseOverride?r.rhythm:isNSR?'PEA (NSR)':r.rhythm;
+  const applyKey=r._pulseOverride?'PEA':isNSR?'PEA':(r.acls_rhythm_key||r.rhythm||'');
 
-  // ── NSR/Organized → PEA ถ้าไม่มีชีพจร (legacy path) ──
-  const rawKey = r.acls_rhythm_key || r.rhythm || '';
-  const isNSR = !r._pulseOverride && ['NSR','Normal Sinus','Sinus Rhythm','Normal Sinus Rhythm'].some(k => rawRhythm.toLowerCase().includes(k.toLowerCase())) && !pulseAlgoKey;
-  const displayRhythm = r._pulseOverride ? r.rhythm : isNSR ? 'PEA (NSR)' : r.rhythm;
-  const applyKey = r._pulseOverride ? 'PEA' : isNSR ? 'PEA' : rawKey;
-
+  // badge
   const badge=document.getElementById('ekgm_badge');badge.textContent=displayRhythm||'—';
-  const cm={'VF':{bg:'rgba(182,107,255,.2)',bd:'rgba(182,107,255,.6)',c:'#d4a7ff'},'pVT':{bg:'rgba(182,107,255,.2)',bd:'rgba(182,107,255,.6)',c:'#d4a7ff'},'Asystole':{bg:'rgba(255,59,92,.2)',bd:'rgba(255,59,92,.6)',c:'#ff8099'},'PEA':{bg:'rgba(255,59,92,.2)',bd:'rgba(255,59,92,.6)',c:'#ff8099'},'NSR':{bg:'rgba(255,59,92,.18)',bd:'rgba(255,59,92,.55)',c:'#ff8099'},'AF':{bg:'rgba(255,179,0,.15)',bd:'rgba(255,179,0,.5)',c:'#ffb300'},'SVT':{bg:'rgba(255,179,0,.15)',bd:'rgba(255,179,0,.5)',c:'#ffcc40'},'SinusBrady':{bg:'rgba(255,179,0,.12)',bd:'rgba(255,179,0,.45)',c:'#ffcc40'},'STEMI':{bg:'rgba(255,59,92,.15)',bd:'rgba(255,59,92,.5)',c:'#ff5577'}};
-  const cv=cm[isNSR?'PEA':r.rhythm]||{bg:'rgba(255,179,0,.15)',bd:'rgba(255,179,0,.5)',c:'#ffcc40'};badge.style.cssText=`background:${cv.bg};border:2px solid ${cv.bd};color:${cv.c}`;
-  document.getElementById('ekgm_resultHdr').style.background='rgba(255,59,92,.04)';
-  const conf=r.confidence||0,ct=document.getElementById('ekgm_confTxt'),cb=document.getElementById('ekgm_confBar');ct.textContent=conf+'%';ct.style.color=conf>=80?'#00e5a0':conf>=60?'#ffb300':'#ff5577';cb.style.width=conf+'%';cb.style.background=conf>=80?'#00e5a0':conf>=60?'#ffb300':'#ff5577';
+  const cm={'VF':{bg:'rgba(182,107,255,.2)',bd:'rgba(182,107,255,.6)',c:'#d4a7ff'},'pVT':{bg:'rgba(182,107,255,.2)',bd:'rgba(182,107,255,.6)',c:'#d4a7ff'},'Asystole':{bg:'rgba(255,59,92,.2)',bd:'rgba(255,59,92,.6)',c:'#ff8099'},'PEA':{bg:'rgba(255,59,92,.2)',bd:'rgba(255,59,92,.6)',c:'#ff8099'},'AF':{bg:'rgba(255,179,0,.15)',bd:'rgba(255,179,0,.5)',c:'#ffb300'},'SVT':{bg:'rgba(255,179,0,.15)',bd:'rgba(255,179,0,.5)',c:'#ffcc40'},'SinusBrady':{bg:'rgba(255,179,0,.12)',bd:'rgba(255,179,0,.45)',c:'#ffcc40'},'STEMI':{bg:'rgba(255,59,92,.15)',bd:'rgba(255,59,92,.5)',c:'#ff5577'}};
+  const cv=cm[showPulseButton?(pulseAlgoKey||'SVT'):(isNSR?'PEA':r.rhythm)]||{bg:'rgba(255,179,0,.15)',bd:'rgba(255,179,0,.5)',c:'#ffcc40'};
+  badge.style.cssText=`background:${cv.bg};border:2px solid ${cv.bd};color:${cv.c}`;
+  document.getElementById('ekgm_resultHdr').style.background=showPulseButton?'rgba(24,128,56,.04)':'rgba(255,59,92,.04)';
+
+  const conf=r.confidence||0,ct=document.getElementById('ekgm_confTxt'),cb=document.getElementById('ekgm_confBar');
+  ct.textContent=conf+'%';ct.style.color=conf>=80?'#00e5a0':conf>=60?'#ffb300':'#ff5577';
+  cb.style.width=conf+'%';cb.style.background=conf>=80?'#00e5a0':conf>=60?'#ffb300':'#ff5577';
   document.getElementById('ekgm_time').textContent=new Date().toLocaleTimeString('th-TH');
 
-  const chipClass=isNSR?'asys':({'VF':'vf','pVT':'vf','Asystole':'asys','PEA':'asys'}[r.rhythm]||'warn');
+  // chips
   document.getElementById('ekgm_chips').innerHTML=
-    `<span class="ekgm-chip ekgm-chip-${chipClass}">${displayRhythm}</span>`+
+    `<span class="ekgm-chip ekgm-chip-warn">${displayRhythm}</span>`+
     (r._pulseOverride?'<span class="ekgm-chip ekgm-chip-asys">❌ ไม่มีชีพจร = PEA</span>':
+      showPulseButton?'<span class="ekgm-chip" style="background:rgba(24,128,56,.2);border:1px solid rgba(24,128,56,.5);color:#81c784">💚 มีชีพจร</span>':
       isNSR?'<span class="ekgm-chip ekgm-chip-asys">🚫 Non-Shockable (PEA)</span>':
       r.shockable===true?'<span class="ekgm-chip ekgm-chip-vf">⚡ Shockable</span>':
       r.shockable===false?'<span class="ekgm-chip ekgm-chip-asys">🚫 Non-Shockable</span>':'')+
     (r.rate?`<span class="ekgm-chip ekgm-chip-warn">⏱ ${r.rate}</span>`:'')+
     (r.image_quality==='poor'?'<span class="ekgm-chip ekgm-chip-asys">⚠ รูปต่ำ</span>':'');
 
-  const applySection = document.getElementById('ekgm_applySection');
-  const applyBtn = document.getElementById('ekgm_applyBtn');
-
-  // ── มีชีพจร + รู้ rhythm → ปุ่มไปหน้า Algorithm มีชีพจร ──
-  if(pulseAlgoKey && !r._pulseOverride){
+  // apply button
+  const applySection=document.getElementById('ekgm_applySection');
+  const applyBtn=document.getElementById('ekgm_applyBtn');
+  if(showPulseButton){
     applySection.style.display='';
-    applyBtn.style.background='rgba(24,128,56,.25)';
-    applyBtn.style.borderColor='rgba(24,128,56,.6)';
-    applyBtn.style.color='#81c784';
-    applyBtn.innerHTML='💚 ไปหน้า Algorithm มีชีพจร — ' + displayRhythm;
-    applyBtn.dataset.applyKey = pulseAlgoKey;
-    applyBtn.dataset.pulseMode = 'true';
-  }
-  // ── ไม่มีชีพจร (PEA/VF/pVT/Asystole) → ปุ่มเดิม ──
-  else {
+    applyBtn.style.cssText='width:100%;padding:12px;border-radius:9px;font-size:14px;font-weight:800;cursor:pointer;font-family:Sarabun,sans-serif;background:rgba(24,128,56,.25);border:2px solid rgba(24,128,56,.6);color:#81c784';
+    applyBtn.innerHTML='💚 ไปหน้า Algorithm มีชีพจร — '+displayRhythm;
+    applyBtn.dataset.pulseMode='true';
+    applyBtn.dataset.applyKey=pulseAlgoKey;
+  } else {
     const canApply=['VF','pVT','Asystole','PEA'].includes(applyKey);
     applySection.style.display=canApply?'':'none';
     if(canApply){
+      applyBtn.style.cssText='';
       applyBtn.style.background=({'VF':'rgba(182,107,255,.25)','pVT':'rgba(182,107,255,.25)','Asystole':'rgba(255,59,92,.2)','PEA':'rgba(255,59,92,.2)'}[applyKey]||'rgba(255,59,92,.2)');
-      applyBtn.style.borderColor='';applyBtn.style.color='';
-      applyBtn.innerHTML=isNSR
-        ? '✅ ใช้ผลนี้ใน ACLS — เลือก PEA (NSR) อัตโนมัติ'
-        : '✅ ใช้ผลนี้ใน ACLS — เลือก '+applyKey+' อัตโนมัติ';
-      applyBtn.dataset.applyKey = applyKey;
-      applyBtn.dataset.pulseMode = 'false';
+      applyBtn.innerHTML=isNSR?'✅ ใช้ผลนี้ใน ACLS — เลือก PEA (NSR) อัตโนมัติ':'✅ ใช้ผลนี้ใน ACLS — เลือก '+applyKey+' อัตโนมัติ';
+      applyBtn.dataset.pulseMode='false';
+      applyBtn.dataset.applyKey=applyKey;
     }
   }
 
   document.getElementById('ekgm_findings').textContent=
-    (r._pulseOverride ? '⚠ คลำชีพจรไม่ได้ → ถือเป็น PEA\nEKG pattern: '+r._originalRhythm+'\n' : '') +
-    (isNSR ? '⚠ พบ Organized rhythm (NSR) — ในกรณีไม่มีชีพจร = PEA\n' : '') + (r.findings||'—');
+    (r._pulseOverride?'⚠ คลำชีพจรไม่ได้ → PEA | EKG: '+r._originalRhythm+'\n':'')+
+    (isNSR?'⚠ Organized rhythm ไม่มีชีพจร = PEA\n':'')+(r.findings||'—');
 
   const abox=document.getElementById('ekgm_algo');
-  abox.className='ekgm-algo noshock';
+  abox.className='ekgm-algo '+(isDefinitelyPulseless?'noshock':'');
   abox.innerHTML=(r.acls_steps||[]).map((s,i)=>`<div class="ekgm-algo-step"><div class="ekgm-algo-num">${i+1}</div><div style="flex:1">${s}</div></div>`).join('');
 
-  const actionColor = pulseAlgoKey && !r._pulseOverride ? '#81c784' : '#ff7a8a';
+  const ac=showPulseButton?'#81c784':'#ff7a8a';
   document.getElementById('ekgm_action').innerHTML=
-    (r._pulseOverride?'<div style="font-size:13px;font-weight:700;color:#ef9a9a;margin-bottom:6px;padding:6px 10px;background:rgba(217,48,37,.12);border:1px solid rgba(217,48,37,.35);border-radius:6px;">❌ คลำชีพจรไม่ได้ — <b>PEA</b> | EKG: '+r._originalRhythm+'<br>เริ่ม CPR + Epi + หา H&T ทันที</div>':'') +
-    (isNSR?'<div style="font-size:13px;font-weight:700;color:#ffb300;margin-bottom:6px;padding:6px 10px;background:rgba(255,179,0,.1);border:1px solid rgba(255,179,0,.3);border-radius:6px;">⚠ AI พบ NSR — คลื่นมี Organize แต่ไม่มีชีพจร = <b>PEA</b><br>ทำ CPR ต่อ | หา Reversible Cause (6H 5T)</div>':'') +
-    `<div style="font-size:14px;font-weight:700;color:${actionColor};line-height:1.7">${r.immediate_action||'—'}</div>`+
-    (r.caution?`<div style="margin-top:7px;background:rgba(255,179,0,.1);border:1px solid rgba(255,179,0,.3);border-radius:6px;padding:7px 10px;font-size:11px;color:#ffcc60;">⚠️ ${r.caution}</div>`:'');
+    (r._pulseOverride?'<div style="font-size:13px;font-weight:700;color:#ef9a9a;margin-bottom:6px;padding:6px 10px;background:rgba(217,48,37,.12);border:1px solid rgba(217,48,37,.35);border-radius:6px">❌ คลำชีพจรไม่ได้ — PEA | EKG: '+r._originalRhythm+'<br>CPR + Epi + หา H&T ทันที</div>':'')+
+    (isNSR?'<div style="font-size:13px;font-weight:700;color:#ffb300;margin-bottom:6px;padding:6px 10px;background:rgba(255,179,0,.1);border:1px solid rgba(255,179,0,.3);border-radius:6px">⚠ NSR ไม่มีชีพจร = PEA</div>':'')+
+    `<div style="font-size:14px;font-weight:700;color:${ac};line-height:1.7">${r.immediate_action||'—'}</div>`+
+    (r.caution?`<div style="margin-top:7px;background:rgba(255,179,0,.1);border:1px solid rgba(255,179,0,.3);border-radius:6px;padding:7px 10px;font-size:11px;color:#ffcc60">⚠️ ${r.caution}</div>`:'');
 
-  ekgm_lastResult = {...r, _applyKey: applyKey, _pulseAlgoKey: pulseAlgoKey};
+  ekgm_lastResult={...r,_applyKey:applyKey,_pulseAlgoKey:pulseAlgoKey,_showPulseBtn:showPulseButton};
   toast('✅ วิเคราะห์เสร็จ: '+displayRhythm,'green');
 }
 
