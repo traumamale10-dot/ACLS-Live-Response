@@ -3997,25 +3997,37 @@ function ekgm_showResult(r){
     ['ventricular tachycardia','VT_pulse'],['wide complex tachycardia','VT_pulse'],
     ['monomorphic vt','VT_pulse'],['monomorphic ventricular','VT_pulse'],
     ['wide qrs tachycardia','VT_pulse'],[' vt ','VT_pulse'],
+    // ถ้า user กด "คลำได้" แต่ AI บอก VF → น่าจะเป็น VT with pulse (AI อ่านผิด)
+    ['ventricular fibrillation','VT_pulse'],['fibrillation','VT_pulse'],[' vf','VT_pulse'],
+    // VF ที่ user ยืนยันว่าคลำได้ → map เป็น VT_pulse (AI อาจ overread เป็น VF)
+    ['ventricular fibrillation','VT_pulse'],
     ['stemi','STEMI'],['st elevation mi','STEMI'],['st-elevation','STEMI'],['st elevation','STEMI'],
   ];
   const rawRhythm=(r.rhythm||'').toLowerCase();
+  const rawKey=(r.acls_rhythm_key||'').toLowerCase();
   let pulseAlgoKey=null;
-  for(const [kw,key] of PULSE_MAP){ if(rawRhythm.includes(kw)){pulseAlgoKey=key;break;} }
+  // ถ้า user กด "คลำได้" และ AI บอก VF หรือ pVT → map เป็น VT_pulse (wide QRS มีชีพจร)
+  if(r.hasPulse===true && (rawKey==='vf'||rawKey==='pvt')){
+    pulseAlgoKey='VT_pulse';
+  } else {
+    for(const [kw,key] of PULSE_MAP){ if(rawRhythm.includes(kw)||rawKey.includes(kw)){pulseAlgoKey=key;break;} }
+  }
 
   // ตัดสินใจ: มีชีพจรหรือไม่
-  const isDefinitelyPulseless=r._pulseOverride===true||['VF','pVT','Asystole','PEA'].includes(r.acls_rhythm_key);
-  // ถ้า user กด "คลำได้" (hasPulse=true) → แสดงปุ่มไปหน้ามีชีพจรเสมอ (ถ้า map rhythm ได้)
-  // ถ้า user กด "คลำไม่ได้" → _pulseOverride=true → isDefinitelyPulseless=true
-  const showPulseButton=(r.hasPulse===true || !!pulseAlgoKey) && !isDefinitelyPulseless;
-  // ถ้ามีชีพจรแต่ map rhythm ไม่ได้ → ให้ user เลือกเองจากหน้า ROSC
-  const pulseButUnknown=r.hasPulse===true && !pulseAlgoKey && !isDefinitelyPulseless;
+  // user กด "คลำได้" → hasPulse=true → ไม่ pulseless ไม่ว่า AI จะบอกอะไร
+  // user กด "คลำไม่ได้" → _pulseOverride=true เสมอ
+  const isDefinitelyPulseless = r._pulseOverride === true ||
+    (r.hasPulse !== true && ['VF','pVT','Asystole','PEA'].includes(r.acls_rhythm_key));
+  const showPulseButton = (r.hasPulse === true || !!pulseAlgoKey) && !isDefinitelyPulseless;
+  const pulseButUnknown = r.hasPulse === true && !pulseAlgoKey && !isDefinitelyPulseless;
 
   // NSR edge case
   const isNSR=!showPulseButton&&!isDefinitelyPulseless&&['nsr','normal sinus','sinus rhythm'].some(k=>rawRhythm.includes(k));
-  const displayRhythm=r._pulseOverride ? r.rhythm : isNSR ? 'PEA (NSR)' : r.rhythm;
-  // applyKey: ถ้า _pulseOverride ให้ใช้ acls_rhythm_key จริงๆ (VF/pVT/Asystole/PEA)
-  const applyKey=r._pulseOverride ? (r.acls_rhythm_key||'PEA') : isNSR ? 'PEA' : (r.acls_rhythm_key||r.rhythm||'');
+
+  // แสดงชื่อตาม AI จริงๆ ไม่ override
+  const displayRhythm = r._pulseOverride ? r.rhythm : isNSR ? 'PEA (NSR)' : r.rhythm;
+
+  const applyKey = r._pulseOverride ? (r.acls_rhythm_key||'PEA') : isNSR ? 'PEA' : (r.acls_rhythm_key||r.rhythm||'');
   const isShockablePulseless = r._pulseOverride && ['VF','pVT'].includes(r.acls_rhythm_key);
 
   // badge
@@ -4052,7 +4064,9 @@ function ekgm_showResult(r){
     if(pulseButUnknown){
       applyBtn.innerHTML='💚 มีชีพจร → ไปหน้า Rhythm ดูแลต่อ (เลือก Rhythm เอง)';
     } else {
-      applyBtn.innerHTML='💚 ไปหน้า Algorithm มีชีพจร — '+displayRhythm;
+      // แสดงชื่อ AI rhythm แต่ destination คือ pulseAlgoKey ที่ถูกต้อง
+      const destName = {'SVT':'SVT','AF':'AF/Flutter','SinusBrady':'Sinus Brady','AVBlock':'AV Block','VT_pulse':'VT with Pulse','STEMI':'STEMI'}[pulseAlgoKey] || displayRhythm;
+      applyBtn.innerHTML='💚 ไปหน้า Algorithm มีชีพจร — ' + destName;
     }
     applyBtn.dataset.pulseMode='true';
     applyBtn.dataset.applyKey=pulseAlgoKey||'';
