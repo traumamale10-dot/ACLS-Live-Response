@@ -3876,18 +3876,29 @@ async function ekgm_analyze(hasPulse){
       document.getElementById('ekgm_spinner').style.display='none';
       document.getElementById('ekgm_analyzeTxt').textContent='🤖 วิเคราะห์ Rhythm ด้วย AI (Gemini)';
       const aiResult = typeof gasRes === 'string' ? JSON.parse(gasRes) : gasRes;
-      const aiRhythm = (aiResult.rhythm||'').toLowerCase();
+      // ดึง rhythm จากหลาย field — Gemini อาจส่งมาในรูปแบบต่างๆ
+      const aiRhythmRaw = aiResult.rhythm || aiResult.acls_rhythm_key || '';
+      const aiRhythm = aiRhythmRaw.toLowerCase();
+      const aiRhythmKey = (aiResult.acls_rhythm_key||'').toLowerCase();
 
-      // ตรวจว่า AI เห็น VF หรือ VT (shockable) → ใช้ pVT/VF ไม่ใช่ PEA
-      const isVF  = aiRhythm.includes('ventricular fibrillation') || aiRhythm.includes(' vf') || aiRhythm.startsWith('vf');
-      const isVT  = aiRhythm.includes('ventricular tachycardia') || aiRhythm.includes(' vt') || aiRhythm.includes('wide complex');
-      const isAsystole = aiRhythm.includes('asystole') || aiRhythm.includes('flatline');
+      // ตรวจ VF
+      const isVF = aiRhythm.includes('ventricular fibrillation') || aiRhythmKey.includes('vf') ||
+                   aiRhythm.includes(' vf') || aiRhythm.startsWith('vf');
+      // ตรวจ VT (pulseless) — เช็คทุกรูปแบบที่ Gemini อาจส่งมา
+      const isVT = (aiRhythm.includes('ventricular tachycardia') || aiRhythm.includes('wide complex') ||
+                    aiRhythm.includes('monomorphic vt') || aiRhythm.includes(' vt') ||
+                    aiRhythmKey.includes('pvt') || aiRhythmKey.includes('vt')) &&
+                   !aiRhythm.includes('with pulse');
+      const isAsystole = aiRhythm.includes('asystole') || aiRhythm.includes('flatline') || aiRhythmKey.includes('asystole');
 
       let finalKey, finalRhythm, finalShockable, finalSteps, finalAction, timelineMsg;
 
-      if(isVF || (isVT && !aiRhythm.includes('with pulse'))){
+      // ถ้า Gemini ส่ง acls_rhythm_key มาตรงๆ → เชื่อถือได้มากกว่า text matching
+      const aiKey = aiResult.acls_rhythm_key || '';
+
+      if(aiKey === 'VF' || aiKey === 'pVT' || isVF || isVT){
         // VT/VF ไม่มีชีพจร = pVT หรือ VF → Shockable
-        finalKey = isVF ? 'VF' : 'pVT';
+        finalKey = (aiKey==='VF' || isVF) ? 'VF' : 'pVT';
         finalRhythm = isVF ? 'VF — คลำไม่ได้' : 'pVT — Pulseless VT';
         finalShockable = true;
         finalSteps = [
@@ -3899,7 +3910,7 @@ async function ekgm_analyze(hasPulse){
         ];
         finalAction = '⚡ SHOCKABLE — Defibrillate ทันที 200J!';
         timelineMsg = '⚡ '+finalKey+' — คลำไม่ได้ | EKG: '+(aiResult.rhythm||'?');
-      } else if(isAsystole){
+      } else if(aiKey === 'Asystole' || isAsystole){
         finalKey = 'Asystole';
         finalRhythm = 'Asystole — คลำไม่ได้';
         finalShockable = false;
