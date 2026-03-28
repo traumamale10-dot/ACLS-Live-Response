@@ -4002,13 +4002,16 @@ function ekgm_showResult(r){
 
   // NSR edge case
   const isNSR=!showPulseButton&&!isDefinitelyPulseless&&['nsr','normal sinus','sinus rhythm'].some(k=>rawRhythm.includes(k));
-  const displayRhythm=r._pulseOverride?r.rhythm:isNSR?'PEA (NSR)':r.rhythm;
-  const applyKey=r._pulseOverride?'PEA':isNSR?'PEA':(r.acls_rhythm_key||r.rhythm||'');
+  const displayRhythm=r._pulseOverride ? r.rhythm : isNSR ? 'PEA (NSR)' : r.rhythm;
+  // applyKey: ถ้า _pulseOverride ให้ใช้ acls_rhythm_key จริงๆ (VF/pVT/Asystole/PEA)
+  const applyKey=r._pulseOverride ? (r.acls_rhythm_key||'PEA') : isNSR ? 'PEA' : (r.acls_rhythm_key||r.rhythm||'');
+  const isShockablePulseless = r._pulseOverride && ['VF','pVT'].includes(r.acls_rhythm_key);
 
   // badge
   const badge=document.getElementById('ekgm_badge');badge.textContent=displayRhythm||'—';
   const cm={'VF':{bg:'rgba(182,107,255,.2)',bd:'rgba(182,107,255,.6)',c:'#d4a7ff'},'pVT':{bg:'rgba(182,107,255,.2)',bd:'rgba(182,107,255,.6)',c:'#d4a7ff'},'Asystole':{bg:'rgba(255,59,92,.2)',bd:'rgba(255,59,92,.6)',c:'#ff8099'},'PEA':{bg:'rgba(255,59,92,.2)',bd:'rgba(255,59,92,.6)',c:'#ff8099'},'AF':{bg:'rgba(255,179,0,.15)',bd:'rgba(255,179,0,.5)',c:'#ffb300'},'SVT':{bg:'rgba(255,179,0,.15)',bd:'rgba(255,179,0,.5)',c:'#ffcc40'},'SinusBrady':{bg:'rgba(255,179,0,.12)',bd:'rgba(255,179,0,.45)',c:'#ffcc40'},'STEMI':{bg:'rgba(255,59,92,.15)',bd:'rgba(255,59,92,.5)',c:'#ff5577'}};
-  const cv=cm[showPulseButton?(pulseAlgoKey||'SVT'):(isNSR?'PEA':r.rhythm)]||{bg:'rgba(255,179,0,.15)',bd:'rgba(255,179,0,.5)',c:'#ffcc40'};
+  const cvKey=showPulseButton?(pulseAlgoKey||'SVT'):applyKey;
+  const cv=cm[cvKey]||{bg:'rgba(255,179,0,.15)',bd:'rgba(255,179,0,.5)',c:'#ffcc40'};
   badge.style.cssText=`background:${cv.bg};border:2px solid ${cv.bd};color:${cv.c}`;
   document.getElementById('ekgm_resultHdr').style.background=showPulseButton?'rgba(24,128,56,.04)':'rgba(255,59,92,.04)';
 
@@ -4019,8 +4022,9 @@ function ekgm_showResult(r){
 
   // chips
   document.getElementById('ekgm_chips').innerHTML=
-    `<span class="ekgm-chip ekgm-chip-warn">${displayRhythm}</span>`+
-    (r._pulseOverride?'<span class="ekgm-chip ekgm-chip-asys">❌ ไม่มีชีพจร = PEA</span>':
+    `<span class="ekgm-chip ${isShockablePulseless?'ekgm-chip-vf':'ekgm-chip-warn'}">${displayRhythm}</span>`+
+    (isShockablePulseless?'<span class="ekgm-chip ekgm-chip-vf">⚡ Shockable — คลำไม่ได้</span>':
+      r._pulseOverride?'<span class="ekgm-chip ekgm-chip-asys">🚫 Non-Shockable — คลำไม่ได้</span>':
       showPulseButton?'<span class="ekgm-chip" style="background:rgba(24,128,56,.2);border:1px solid rgba(24,128,56,.5);color:#81c784">💚 มีชีพจร</span>':
       isNSR?'<span class="ekgm-chip ekgm-chip-asys">🚫 Non-Shockable (PEA)</span>':
       r.shockable===true?'<span class="ekgm-chip ekgm-chip-vf">⚡ Shockable</span>':
