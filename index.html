@@ -3908,6 +3908,8 @@ async function ekgm_analyze(hasPulse){
     if(gasRes.error) throw new Error(gasRes.error);
     const result = typeof gasRes === 'string' ? JSON.parse(gasRes) : gasRes;
     if(result.error) throw new Error(result.error);
+    // inject hasPulse=true เข้า result เพื่อให้ showResult รู้ว่า user ยืนยันว่ามีชีพจร
+    result.hasPulse = true;
     ekgm_lastResult = result;
     clearInterval(mi_int);
     document.getElementById('ekgm_loading').classList.remove('show');
@@ -3950,7 +3952,11 @@ function ekgm_showResult(r){
 
   // ตัดสินใจ: มีชีพจรหรือไม่
   const isDefinitelyPulseless=r._pulseOverride===true||['VF','pVT','Asystole','PEA'].includes(r.acls_rhythm_key);
-  const showPulseButton=!!pulseAlgoKey && !isDefinitelyPulseless;
+  // ถ้า user กด "คลำได้" (hasPulse=true) → แสดงปุ่มไปหน้ามีชีพจรเสมอ (ถ้า map rhythm ได้)
+  // ถ้า user กด "คลำไม่ได้" → _pulseOverride=true → isDefinitelyPulseless=true
+  const showPulseButton=(r.hasPulse===true || !!pulseAlgoKey) && !isDefinitelyPulseless;
+  // ถ้ามีชีพจรแต่ map rhythm ไม่ได้ → ให้ user เลือกเองจากหน้า ROSC
+  const pulseButUnknown=r.hasPulse===true && !pulseAlgoKey && !isDefinitelyPulseless;
 
   // NSR edge case
   const isNSR=!showPulseButton&&!isDefinitelyPulseless&&['nsr','normal sinus','sinus rhythm'].some(k=>rawRhythm.includes(k));
@@ -3986,9 +3992,13 @@ function ekgm_showResult(r){
   if(showPulseButton){
     applySection.style.display='';
     applyBtn.style.cssText='width:100%;padding:12px;border-radius:9px;font-size:14px;font-weight:800;cursor:pointer;font-family:Sarabun,sans-serif;background:rgba(24,128,56,.25);border:2px solid rgba(24,128,56,.6);color:#81c784';
-    applyBtn.innerHTML='💚 ไปหน้า Algorithm มีชีพจร — '+displayRhythm;
+    if(pulseButUnknown){
+      applyBtn.innerHTML='💚 มีชีพจร → ไปหน้า Rhythm ดูแลต่อ (เลือก Rhythm เอง)';
+    } else {
+      applyBtn.innerHTML='💚 ไปหน้า Algorithm มีชีพจร — '+displayRhythm;
+    }
     applyBtn.dataset.pulseMode='true';
-    applyBtn.dataset.applyKey=pulseAlgoKey;
+    applyBtn.dataset.applyKey=pulseAlgoKey||'';
   } else {
     const canApply=['VF','pVT','Asystole','PEA'].includes(applyKey);
     applySection.style.display=canApply?'':'none';
@@ -4027,19 +4037,17 @@ function ekgm_applyRhythm(){
   const pulseAlgoKey = ekgm_lastResult._pulseAlgoKey;
 
   // ── มีชีพจร → ไปหน้า Algorithm มีชีพจร ──
-  if(pulseMode && pulseAlgoKey){
+  if(pulseMode){
     closeEKGModal();
-    // ถ้ายังไม่มี ROSC → ไป roscScreen ก่อน
     setTimeout(()=>{
-      if(document.getElementById('roscScreen').classList.contains('active') ||
-         document.getElementById('roscScreen').style.display !== 'none'){
-        showPulseAlgo(pulseAlgoKey);
-      } else {
-        showScreen('roscScreen');
+      showScreen('roscScreen');
+      if(pulseAlgoKey){
         setTimeout(()=>{ showPulseAlgo(pulseAlgoKey); }, 200);
+        toast('💚 ไป Algorithm มีชีพจร: '+(ekgm_lastResult.rhythm||pulseAlgoKey),'green');
+      } else {
+        toast('💚 มีชีพจร — เลือก Rhythm จากหน้านี้ได้เลย','green');
       }
-      toast('💚 ไป Algorithm มีชีพจร: ' + (ekgm_lastResult.rhythm||pulseAlgoKey), 'green');
-    }, 300);
+    },300);
     return;
   }
 
